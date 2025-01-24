@@ -73,7 +73,6 @@ fn parseNested(p: *Parser) anyerror!Value {
             else => return err,
         };
     }
-    // value from TYPE is { types.Value{ .c = { 70, 102 } } }
     if (std.mem.eql(u8, &fcc, "TYPE")) {
         switch (vs[0]) {
             .c => p.ctype = vs[0].c,
@@ -117,6 +116,37 @@ fn simpleParser(c: u8, input: std.io.AnyReader) anyerror!Value {
         'S' => .{ .S = try input.readInt(u16, .big) },
         else => std.debug.panic("no simple parser for: {c}\n", .{c}),
     };
+}
+
+test simpleParser {
+    const Example = struct {
+        c: u8,
+        bytes: []const u8,
+        value: Value,
+    };
+
+    const staticExamples = [_]Example{
+        .{ .c = 'F', .bytes = &[4]u8{ 71, 80, 77, 70 }, .value = .{ .F = [4]u8{ 71, 80, 77, 70 } } },
+        .{ .c = 'f', .bytes = &[4]u8{ 64, 73, 15, 219 }, .value = .{ .f = 3.1415927 } },
+        .{ .c = 'L', .bytes = &[4]u8{ 0, 0, 0, 42 }, .value = .{ .L = 42 } },
+        .{ .c = 'l', .bytes = &[4]u8{ 255, 255, 255, 214 }, .value = .{ .l = -42 } },
+        .{ .c = 'B', .bytes = &[1]u8{255}, .value = .{ .B = 255 } },
+        .{ .c = 'b', .bytes = &[1]u8{214}, .value = .{ .b = -42 } },
+        .{ .c = 'S', .bytes = &[2]u8{ 0, 42 }, .value = .{ .S = 42 } },
+        .{ .c = 's', .bytes = &[2]u8{ 0, 42 }, .value = .{ .s = 42 } },
+        .{ .c = 'd', .bytes = &[8]u8{ 64, 9, 33, 251, 84, 68, 45, 24 }, .value = .{ .d = 3.141592653589793 } },
+        .{ .c = 'j', .bytes = &[8]u8{ 0, 0, 0, 0, 0, 0, 0, 42 }, .value = .{ .j = 42 } },
+        .{ .c = 'J', .bytes = &[8]u8{ 0, 0, 0, 0, 0, 0, 0, 42 }, .value = .{ .J = 42 } },
+        .{ .c = 'q', .bytes = &[4]u8{ 0, 0, 0, 42 }, .value = .{ .q = 42 } },
+        .{ .c = 'Q', .bytes = &[8]u8{ 0, 0, 0, 0, 0, 0, 0, 42 }, .value = .{ .Q = 42 } },
+    };
+
+    for (staticExamples) |example| {
+        var fbs = std.io.fixedBufferStream(example.bytes);
+
+        const result = try simpleParser(example.c, fbs.reader().any());
+        try std.testing.expectEqual(example.value, result);
+    }
 }
 
 fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {

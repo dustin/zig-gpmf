@@ -1,5 +1,5 @@
 const std = @import("std");
-const types = @import("types.zig");
+const gpmf = @import("gpmf.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -17,7 +17,7 @@ pub fn main() !void {
     defer f.close();
 
     while (true) {
-        const nested = types.parse(arena.allocator(), f.reader().any()) catch |err| switch (err) {
+        const nested = gpmf.parse(arena.allocator(), f.reader().any()) catch |err| switch (err) {
             error.EndOfStream => return void{},
             else => unreachable,
         };
