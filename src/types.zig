@@ -190,14 +190,13 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
 }
 
 fn parseComplex(p: *Parser, _: usize, rpt: u16) anyerror![]Value {
-    var a = try p.alloc.alloc(Value, rpt);
-    // TODO:  This is putting stuff in the wrong place.
-    for (0..rpt) |i| {
+    var a = std.ArrayList(Value).init(p.alloc);
+    for (0..rpt) |_| {
         for (p.ctype) |f| {
-            a[i] = try simpleParser(f, p.input);
+            try a.append(try simpleParser(f, p.input));
         }
     }
-    return a;
+    return a.items;
 }
 
 test parseFourCC {
