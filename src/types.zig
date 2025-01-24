@@ -88,7 +88,6 @@ fn parseFourCC(input: std.io.AnyReader) !FourCC {
     inline for (0..4) |i| {
         fcc[i] = try input.readByte();
     }
-    std.debug.print("Parsed {s}\n", .{fcc});
     return fcc;
 }
 
@@ -170,10 +169,13 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
         },
         '?' => parseComplex(p, ss, rpt),
         0 => {
+            var inin = std.io.limitedReader(p.input, @intCast(ss * rpt));
+            var pin = Parser{ .input = inin.reader().any(), .alloc = p.alloc, .ctype = p.ctype };
+
             var a = try p.alloc.alloc(Value, rpt);
             var n: u32 = 0;
             for (0..rpt) |i| {
-                const parsed = parseNested(p) catch |err| switch (err) {
+                const parsed = parseNested(&pin) catch |err| switch (err) {
                     error.EndOfStream => {
                         a = a[0..n];
                         return a;
@@ -185,7 +187,7 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
             }
             return a;
         },
-        else => unreachable,
+        else => std.debug.panic("no value parser for: {c} {d}\n", .{ t, t }),
     };
 }
 
