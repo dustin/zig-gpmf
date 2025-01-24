@@ -92,71 +92,38 @@ fn parseFourCC(input: std.io.AnyReader) !FourCC {
     return fcc;
 }
 
-fn replicated(p: *Parser, one: usize, l: usize, rpt: u16, p1: fn (input: std.io.AnyReader) anyerror!Value) ![]Value {
+fn replicated(p: *Parser, one: usize, l: usize, rpt: u16, t: u8) ![]Value {
     const entries = (l / one) * rpt;
     var a = try p.alloc.alloc(Value, entries);
     for (0..entries) |i| {
-        a[i] = try p1(p.input);
+        a[i] = try simpleParser(t, p.input);
     }
     return a;
 }
 
-fn parse_b(input: std.io.AnyReader) anyerror!Value {
-    return .{ .b = try input.readByteSigned() };
-}
-
-fn parse_B(input: std.io.AnyReader) anyerror!Value {
-    return .{ .B = try input.readByte() };
-}
-
-fn parse_d(input: std.io.AnyReader) anyerror!Value {
-    return .{ .d = @bitCast(try input.readInt(u64, .big)) };
-}
-
-fn parse_f(input: std.io.AnyReader) anyerror!Value {
-    return .{ .f = @bitCast(try input.readInt(u32, .big)) };
-}
-
-fn parse_F(input: std.io.AnyReader) anyerror!Value {
-    return .{ .F = try parseFourCC(input) };
-}
-
-fn parse_j(input: std.io.AnyReader) anyerror!Value {
-    return .{ .j = try input.readInt(i64, .big) };
-}
-
-fn parse_J(input: std.io.AnyReader) anyerror!Value {
-    return .{ .J = try input.readInt(u64, .big) };
-}
-
-fn parse_l(input: std.io.AnyReader) anyerror!Value {
-    return .{ .l = try input.readInt(i32, .big) };
-}
-
-fn parse_L(input: std.io.AnyReader) anyerror!Value {
-    return .{ .L = try input.readInt(u32, .big) };
-}
-
-fn parse_q(input: std.io.AnyReader) anyerror!Value {
-    return .{ .q = try input.readInt(u32, .big) };
-}
-
-fn parse_Q(input: std.io.AnyReader) anyerror!Value {
-    return .{ .Q = try input.readInt(u64, .big) };
-}
-
-fn parse_s(input: std.io.AnyReader) anyerror!Value {
-    return .{ .s = try input.readInt(i16, .big) };
-}
-
-fn parse_S(input: std.io.AnyReader) anyerror!Value {
-    return .{ .S = try input.readInt(u16, .big) };
+fn simpleParser(c: u8, input: std.io.AnyReader) anyerror!Value {
+    return switch (c) {
+        'b' => .{ .b = try input.readByteSigned() },
+        'B' => .{ .B = try input.readByte() },
+        'd' => .{ .d = @bitCast(try input.readInt(u64, .big)) },
+        'f' => .{ .f = @bitCast(try input.readInt(u32, .big)) },
+        'F' => .{ .F = try parseFourCC(input) },
+        'j' => .{ .j = try input.readInt(i64, .big) },
+        'J' => .{ .J = try input.readInt(u64, .big) },
+        'l' => .{ .l = try input.readInt(i32, .big) },
+        'L' => .{ .L = try input.readInt(u32, .big) },
+        'q' => .{ .q = try input.readInt(u32, .big) },
+        'Q' => .{ .Q = try input.readInt(u64, .big) },
+        's' => .{ .s = try input.readInt(i16, .big) },
+        'S' => .{ .S = try input.readInt(u16, .big) },
+        else => std.debug.panic("no simple parser for: {c}\n", .{c}),
+    };
 }
 
 fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
     return switch (t) {
-        'b' => replicated(p, 1, ss, rpt, parse_b),
-        'B' => replicated(p, 1, ss, rpt, parse_B),
+        'b' => replicated(p, 1, ss, rpt, t),
+        'B' => replicated(p, 1, ss, rpt, t),
         'c' => {
             var a = try p.alloc.alloc(Value, rpt);
             for (0..rpt) |i| {
@@ -168,9 +135,9 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
             }
             return a;
         },
-        'd' => replicated(p, 8, ss, rpt, parse_d),
-        'f' => replicated(p, 4, ss, rpt, parse_f),
-        'F' => replicated(p, 4, ss, rpt, parse_F),
+        'd' => replicated(p, 8, ss, rpt, t),
+        'f' => replicated(p, 4, ss, rpt, t),
+        'F' => replicated(p, 4, ss, rpt, t),
         'G' => {
             var a = try p.alloc.alloc(Value, rpt);
             for (0..rpt) |i| {
@@ -182,14 +149,14 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
             }
             return a;
         },
-        'j' => replicated(p, 8, ss, rpt, parse_j),
-        'J' => replicated(p, 8, ss, rpt, parse_J),
-        'l' => replicated(p, 4, ss, rpt, parse_l),
-        'L' => replicated(p, 4, ss, rpt, parse_L),
-        'q' => replicated(p, 4, ss, rpt, parse_q),
-        'Q' => replicated(p, 8, ss, rpt, parse_Q),
-        's' => replicated(p, 2, ss, rpt, parse_s),
-        'S' => replicated(p, 2, ss, rpt, parse_S),
+        'j' => replicated(p, 8, ss, rpt, t),
+        'J' => replicated(p, 8, ss, rpt, t),
+        'l' => replicated(p, 4, ss, rpt, t),
+        'L' => replicated(p, 4, ss, rpt, t),
+        'q' => replicated(p, 4, ss, rpt, t),
+        'Q' => replicated(p, 8, ss, rpt, t),
+        's' => replicated(p, 2, ss, rpt, t),
+        'S' => replicated(p, 2, ss, rpt, t),
         'U' => {
             var a = try p.alloc.alloc(Value, rpt);
             for (0..rpt) |i| {
@@ -219,11 +186,6 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
             return a;
         },
         else => unreachable,
-        //  {
-        //     var a = try p.alloc.alloc(Value, 1);
-        //     a[0] = .{ .unknown = .{ .charId = t, .a1 = ss, .a2 = rpt, .stuff = undefined } };
-        //     return a;
-        // },
     };
 }
 
@@ -232,17 +194,7 @@ fn parseComplex(p: *Parser, _: usize, rpt: u16) anyerror![]Value {
     // TODO:  This is putting stuff in the wrong place.
     for (0..rpt) |i| {
         for (p.ctype) |f| {
-            a[i] = switch (f) {
-                'F' => try parse_F(p.input),
-                'f' => try parse_f(p.input),
-                'L' => try parse_L(p.input),
-                'l' => try parse_l(p.input),
-                'B' => try parse_B(p.input),
-                'b' => try parse_b(p.input),
-                'S' => try parse_S(p.input),
-                's' => try parse_s(p.input),
-                else => std.debug.panic("unhandled complex type: {c}\n", .{p.ctype[i]}),
-            };
+            a[i] = try simpleParser(f, p.input);
         }
     }
     return a;
