@@ -44,7 +44,7 @@ const Value = union(enum) {
     s: i16,
     S: u16,
     U: [16]u8,
-    complex: struct { type: []u8, data: []Value },
+    complex: struct { fmt: []const u8, data: []Value },
     nested: struct { fourcc: FourCC, data: []Value },
     unknown: struct { charId: u8, a1: usize, a2: i32, stuff: [][]u8 },
 };
@@ -192,13 +192,16 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
 }
 
 fn parseComplex(p: *Parser, _: usize, rpt: u16) anyerror![]Value {
-    var a = std.ArrayList(Value).init(p.alloc);
-    for (0..rpt) |_| {
-        for (p.ctype) |f| {
-            try a.append(try simpleParser(f, p.input));
+    var a = try p.alloc.alloc(Value, rpt);
+    for (0..rpt) |r| {
+        var vals = try p.alloc.alloc(Value, p.ctype.len);
+        for (p.ctype, 0..) |f, i| {
+            vals[i] = try simpleParser(f, p.input);
         }
+        a[r] = .{ .complex = .{ .fmt = p.ctype, .data = vals } };
     }
-    return a.items;
+
+    return a;
 }
 
 test parseFourCC {
