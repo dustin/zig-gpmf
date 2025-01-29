@@ -1,7 +1,44 @@
 const std = @import("std");
 const testing = std.testing;
+const zeit = @import("zeit");
 
-const FourCC = [4]u8;
+pub const FourCC = [4]u8;
+
+fn fourcc(s: []const u8) FourCC {
+    return [4]u8{ s[0], s[1], s[2], s[3] };
+}
+
+pub const DEVC: FourCC = fourcc("DEVC");
+pub const DVID: FourCC = fourcc("DVID");
+pub const DVNM: FourCC = fourcc("DVNM");
+pub const STRM: FourCC = fourcc("STRM");
+pub const STMP: FourCC = fourcc("STMP");
+pub const TSMP: FourCC = fourcc("TSMP");
+pub const STNM: FourCC = fourcc("STNM");
+pub const AALP: FourCC = fourcc("AALP");
+pub const ACCL: FourCC = fourcc("ACCL");
+pub const SCEN: FourCC = fourcc("SCEN");
+pub const SNOW: FourCC = fourcc("SNOW");
+pub const URBA: FourCC = fourcc("URBA");
+pub const INDO: FourCC = fourcc("INDO");
+pub const WATR: FourCC = fourcc("WATR");
+pub const VEGE: FourCC = fourcc("VEGE");
+pub const BEAC: FourCC = fourcc("BEAC");
+pub const URBN: FourCC = fourcc("URBN");
+pub const INDR: FourCC = fourcc("INDR");
+pub const FACE: FourCC = fourcc("FACE");
+pub const GPSF: FourCC = fourcc("GPSF");
+pub const GPSU: FourCC = fourcc("GPSU");
+pub const GPSP: FourCC = fourcc("GPSP");
+pub const GPS5: FourCC = fourcc("GPS5");
+pub const GPS9: FourCC = fourcc("GPS9");
+pub const SCAL: FourCC = fourcc("SCAL");
+pub const TMPC: FourCC = fourcc("TMPC");
+pub const GYRO: FourCC = fourcc("GYRO");
+
+pub inline fn eqFourCC(a: FourCC, b: FourCC) bool {
+    return a[0] == b[0] and a[1] == b[1] and a[2] == b[2] and a[3] == b[3];
+}
 
 test "fourcc" {
     try testing.expectEqual("GPMF".*, FourCC{ 'G', 'P', 'M', 'F' });
@@ -27,7 +64,7 @@ test "fourcc" {
 // ?	data structure is complex	TYPE	Structure is defined with a preceding TYPE
 // null	Nested metadata	uint32_t	The data within is GPMF structured KLV data
 
-const Value = union(enum) {
+pub const Value = union(enum) {
     b: i8,
     B: u8,
     c: []const u8,
@@ -43,11 +80,76 @@ const Value = union(enum) {
     Q: u64,
     s: i16,
     S: u16,
-    U: [16]u8,
+    U: zeit.Instant,
     complex: struct { fmt: []const u8, data: []Value },
     nested: struct { fourcc: FourCC, data: []Value },
     unknown: struct { charId: u8, a1: usize, a2: i32, stuff: [][]u8 },
 };
+
+pub const ConversionError = error{ InvalidIntSrc, InvalidFloatSrc, InvalidStringSrc };
+
+pub fn extractValue(comptime T: type, v: Value) ConversionError!T {
+    const extractors = struct {
+        fn Int(vi: Value) ConversionError!T {
+            return switch (vi) {
+                .b => @intCast(vi.b),
+                .B => @intCast(vi.B),
+                .d => @intFromFloat(vi.d),
+                .f => @intFromFloat(vi.f),
+                .j => @intCast(vi.j),
+                .J => @intCast(vi.J),
+                .l => @intCast(vi.l),
+                .L => @intCast(vi.L),
+                .q => @intCast(vi.q),
+                .Q => @intCast(vi.Q),
+                .s => @intCast(vi.s),
+                .S => @intCast(vi.S),
+                else => return error.InvalidIntSrc,
+            };
+        }
+        fn Float(vf: Value) ConversionError!T {
+            return switch (vf) {
+                .b => @floatFromInt(vf.b),
+                .B => @floatFromInt(vf.B),
+                .d => @floatCast(vf.d),
+                .f => @floatCast(vf.f),
+                .j => @floatFromInt(vf.j),
+                .J => @floatFromInt(vf.J),
+                .l => @floatFromInt(vf.l),
+                .L => @floatFromInt(vf.L),
+                .q => @floatFromInt(vf.q),
+                .Q => @floatFromInt(vf.Q),
+                .s => @floatFromInt(vf.s),
+                .S => @floatFromInt(vf.S),
+                else => return error.InvalidFloatSrc,
+            };
+        }
+        fn Pointer(pf: Value) ConversionError!T {
+            return switch (pf) {
+                .c => pf.c,
+                .G => &pf.G,
+                else => {
+                    std.debug.print("Invalid string src: {any}\n", .{pf});
+                    return error.InvalidStringSrc;
+                },
+            };
+        }
+    };
+    switch (@typeInfo(T)) {
+        .Int => {
+            return extractors.Int(v);
+        },
+        .Float => {
+            return extractors.Float(v);
+        },
+        .Pointer => {
+            return extractors.Pointer(v);
+        },
+        else => {
+            @compileError("Unable to extract '" ++ @typeName(T) ++ "'");
+        },
+    }
+}
 
 const Parser = struct {
     input: std.io.AnyReader,
@@ -55,9 +157,28 @@ const Parser = struct {
     ctype: []const u8,
 };
 
-pub fn parse(allocator: std.mem.Allocator, input: std.io.AnyReader) anyerror!Value {
-    var p = Parser{ .input = input, .alloc = allocator, .ctype = "" };
-    return try parseNested(&p);
+pub const Parsed = struct {
+    arena: *std.heap.ArenaAllocator,
+    value: Value,
+
+    pub fn deinit(self: @This()) void {
+        const allocator = self.arena.child_allocator;
+        self.arena.deinit();
+        allocator.destroy(self.arena);
+    }
+};
+
+pub fn parse(allocator: std.mem.Allocator, input: std.io.AnyReader) anyerror!Parsed {
+    var arena = try allocator.create(std.heap.ArenaAllocator);
+    errdefer allocator.destroy(arena);
+    arena.* = std.heap.ArenaAllocator.init(allocator);
+    errdefer arena.deinit();
+
+    var p = Parser{ .input = input, .alloc = arena.allocator(), .ctype = "" };
+    return .{
+        .value = try parseNested(&p),
+        .arena = arena,
+    };
 }
 
 fn parseNested(p: *Parser) anyerror!Value {
@@ -193,7 +314,13 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
                 inline for (0..16) |j| {
                     buf[j] = try p.input.readByte();
                 }
-                a[i] = .{ .U = buf };
+                a[i] = .{ .U = try zeit.instant(.{}) };
+                const inst = try zeit.instant(.{
+                    .source = .{
+                        .iso8601 = try convertTimestamp(p.alloc, &buf),
+                    },
+                });
+                a[i] = .{ .U = inst };
             }
             return a;
         },
@@ -239,4 +366,41 @@ test parseFourCC {
     var fbs = std.io.fixedBufferStream(&buf);
     const fcc = try parseFourCC(fbs.reader().any());
     try testing.expectEqual(fcc, FourCC{ 'G', 'P', 'M', 'F' });
+}
+
+pub fn convertTimestamp(allocator: std.mem.Allocator, ts: []const u8) ![]u8 {
+    // Example input format: "241109183315.400"
+    if (ts.len < 14) {
+        return error.InputTooShort;
+    }
+    if (ts[12] != '.') {
+        return error.InvalidFormat;
+    }
+
+    // Parse needed slices:
+    const yy = ts[0..2];
+    const mm = ts[2..4];
+    const dd = ts[4..6];
+    const HH = ts[6..8];
+    const MM = ts[8..10];
+    const SS = ts[10..12];
+    const fractional = ts[13..];
+
+    const out = try std.fmt.allocPrint(
+        allocator,
+        "20{s}-{s}-{s}T{s}:{s}:{s}.{s}Z",
+        .{ yy, mm, dd, HH, MM, SS, fractional },
+    );
+
+    return out;
+}
+
+test convertTimestamp {
+    const allocator = std.testing.allocator;
+    const input = "241109183315.400";
+    const want = "2024-11-09T18:33:15.400Z";
+    const result = try convertTimestamp(allocator, input);
+    defer allocator.free(result);
+
+    try testing.expectEqualStrings(result, want);
 }
