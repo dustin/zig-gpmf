@@ -133,9 +133,9 @@ pub fn mkDEVC(oalloc: std.mem.Allocator, fcc: gpmf.FourCC, data: []gpmf.Value) a
             .nested => {
                 const nested = v.nested;
                 if (gpmf.eqFourCC(nested.fourcc, gpmf.DVID)) {
-                    devc.id = try gpmf.extractValue(u32, nested.data[0]);
+                    devc.id = try nested.data[0].as(u32);
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.DVNM)) {
-                    devc.name = try gpmf.extractValue([]const u8, nested.data[0]);
+                    devc.name = try nested.data[0].as([]const u8);
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.STRM)) {
                     try recordTelemetry(alloc, &devc, &telems, nested.data);
                 }
@@ -165,8 +165,8 @@ fn parseAudioLevel(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value
     };
     for (0..data.len / 2, 0..) |i, o| {
         const b = i * 2;
-        al.rms[o] = try gpmf.extractValue(f32, data[b]);
-        al.peak[o] = try gpmf.extractValue(f32, data[b + 1]);
+        al.rms[o] = try data[b].as(f32);
+        al.peak[o] = try data[b + 1].as(f32);
     }
     return TVal{ .AudioLevel = al };
 }
@@ -184,7 +184,7 @@ fn parseScene(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
             continue;
         }
         const fcc = nd.complex.data[0].F;
-        const score = try gpmf.extractValue(f32, nd.complex.data[1]);
+        const score = try nd.complex.data[1].as(f32);
         switch (resolveLocation(fcc) orelse unreachable) {
             .Urban => scn.Scene.Urban = score,
             .Indoor => scn.Scene.Indoor = score,
@@ -206,20 +206,20 @@ fn parseFaces(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !?T
         }
         if (std.mem.eql(u8, nd.complex.fmt, "Lffffff")) {
             try faces.append(Face{
-                .id = try gpmf.extractValue(i32, nd.complex.data[0]),
-                .x = try gpmf.extractValue(f32, nd.complex.data[1]),
-                .y = try gpmf.extractValue(f32, nd.complex.data[2]),
-                .w = try gpmf.extractValue(f32, nd.complex.data[3]),
-                .h = try gpmf.extractValue(f32, nd.complex.data[4]),
-                .smile = try gpmf.extractValue(f32, nd.complex.data[6]),
+                .id = try nd.complex.data[0].as(i32),
+                .x = try nd.complex.data[1].as(f32),
+                .y = try nd.complex.data[2].as(f32),
+                .w = try nd.complex.data[3].as(f32),
+                .h = try nd.complex.data[4].as(f32),
+                .smile = try nd.complex.data[6].as(f32),
             });
         } else if (std.mem.eql(u8, nd.complex.fmt, "Lffff")) {
             try faces.append(Face{
-                .id = try gpmf.extractValue(i32, nd.complex.data[0]),
-                .x = try gpmf.extractValue(f32, nd.complex.data[1]),
-                .y = try gpmf.extractValue(f32, nd.complex.data[2]),
-                .w = try gpmf.extractValue(f32, nd.complex.data[3]),
-                .h = try gpmf.extractValue(f32, nd.complex.data[4]),
+                .id = try nd.complex.data[0].as(i32),
+                .x = try nd.complex.data[1].as(f32),
+                .y = try nd.complex.data[2].as(f32),
+                .w = try nd.complex.data[3].as(f32),
+                .h = try nd.complex.data[4].as(f32),
                 .smile = 0,
             });
         } else {
@@ -239,11 +239,11 @@ fn parseGPS5(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) 
     for (0..data.len / 5, 0..) |i, o| {
         const b = i * 5;
         gpses[o] = .{
-            .lat = try gpmf.extractValue(f64, data[b]) / try gpmf.extractValue(f64, state.scal[0]),
-            .lon = try gpmf.extractValue(f64, data[b + 1]) / try gpmf.extractValue(f64, state.scal[1]),
-            .alt = try gpmf.extractValue(f64, data[b + 2]) / try gpmf.extractValue(f64, state.scal[2]),
-            .speed2d = try gpmf.extractValue(f64, data[b + 3]) / try gpmf.extractValue(f64, state.scal[3]),
-            .speed3d = try gpmf.extractValue(f64, data[b + 4]) / try gpmf.extractValue(f64, state.scal[4]),
+            .lat = try data[b].as(f64) / try state.scal[0].as(f64),
+            .lon = try data[b + 1].as(f64) / try state.scal[1].as(f64),
+            .alt = try data[b + 2].as(f64) / try state.scal[2].as(f64),
+            .speed2d = try data[b + 3].as(f64) / try state.scal[3].as(f64),
+            .speed3d = try data[b + 4].as(f64) / try state.scal[4].as(f64),
             .time = state.gpsu,
             .dop = state.gpsp,
             .fix = state.gpsf,
@@ -261,13 +261,15 @@ fn parseGPS9(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) 
         .source = .{ .iso8601 = "2000-01-01T00:00:00Z" },
     });
 
-    const lats = try gpmf.extractValue(f64, state.scal[0]);
-    const lons = try gpmf.extractValue(f64, state.scal[1]);
-    const alts = try gpmf.extractValue(f64, state.scal[2]);
-    const s2ds = try gpmf.extractValue(f64, state.scal[3]);
-    const s3ds = try gpmf.extractValue(f64, state.scal[4]);
-    const dops = try gpmf.extractValue(f64, state.scal[7]);
+    const lats = try state.scal[0].as(f64);
+    const lons = try state.scal[1].as(f64);
+    const alts = try state.scal[2].as(f64);
+    const s2ds = try state.scal[3].as(f64);
+    const s3ds = try state.scal[4].as(f64);
+    const dops = try state.scal[7].as(f64);
+
     var gpses = try alloc.alloc(GPSReading, data.len);
+
     for (data, 0..) |gv, o| {
         const want: []const u8 = "lllllllSS";
         if (gv != .complex) {
@@ -278,28 +280,29 @@ fn parseGPS9(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) 
             std.debug.print("   incorrect format: {u} ({any}) want {u} ({any})\n", .{ gv.complex.fmt, gv.complex.fmt, want, want });
             continue;
         }
+        const gd = gv.complex.data;
         const dur = zeit.Duration{
-            .days = try gpmf.extractValue(usize, gv.complex.data[5]),
+            .days = try gd[5].as(usize),
             .hours = 0,
             .minutes = 0,
             .seconds = 0,
-            .milliseconds = try gpmf.extractValue(usize, gv.complex.data[6]),
+            .milliseconds = try gd[6].as(usize),
             .microseconds = 0,
             .nanoseconds = 0,
         };
 
-        const gd = gv.complex.data;
         gpses[o] = .{
-            .lat = try gpmf.extractValue(f64, gd[0]) / lats,
-            .lon = try gpmf.extractValue(f64, gd[1]) / lons,
-            .alt = try gpmf.extractValue(f64, gd[2]) / alts,
-            .speed2d = try gpmf.extractValue(f64, gd[3]) / s2ds,
-            .speed3d = try gpmf.extractValue(f64, gd[4]) / s3ds,
+            .lat = try gd[0].as(f64) / lats,
+            .lon = try gd[1].as(f64) / lons,
+            .alt = try gd[2].as(f64) / alts,
+            .speed2d = try gd[3].as(f64) / s2ds,
+            .speed3d = try gd[4].as(f64) / s3ds,
             .time = try baseTime.add(dur),
-            .dop = try gpmf.extractValue(f64, gd[7]) / dops,
-            .fix = try gpmf.extractValue(u32, gd[8]),
+            .dop = try gd[7].as(f64) / dops,
+            .fix = try gd[8].as(u32),
         };
     }
+
     return TVal{ .GPS9 = gpses };
 }
 
@@ -313,14 +316,15 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
         .scal = &.{},
         .tmpc = 0,
     };
+
     for (data) |v| {
         switch (v) {
             .nested => {
                 const nested = v.nested;
                 if (gpmf.eqFourCC(nested.fourcc, gpmf.STNM)) {
-                    telem.name = try gpmf.extractValue([]const u8, nested.data[0]);
+                    telem.name = try nested.data[0].as([]const u8);
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.TSMP)) {
-                    telem.tsmp = try gpmf.extractValue(u64, nested.data[0]);
+                    telem.tsmp = try nested.data[0].as(u64);
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.AALP)) {
                     try vala.append(try parseAudioLevel(alloc, &state, nested.data));
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.SCEN)) {
@@ -332,15 +336,15 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.SCAL)) {
                     state.scal = nested.data;
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.TMPC)) {
-                    state.tmpc = try gpmf.extractValue(f64, nested.data[0]);
+                    state.tmpc = try nested.data[0].as(f64);
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.GPSU)) {
                     if (nested.data[0] == .U) {
                         state.gpsu = nested.data[0].U;
                     }
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.GPSF)) {
-                    state.gpsf = try gpmf.extractValue(u32, nested.data[0]);
+                    state.gpsf = try nested.data[0].as(u32);
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.GPSP)) {
-                    state.gpsp = try gpmf.extractValue(f64, nested.data[0]);
+                    state.gpsp = try nested.data[0].as(f64);
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.GPS5)) {
                     try vala.append(try parseGPS5(alloc, &state, nested.data));
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.GPS9)) {
@@ -364,19 +368,20 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
             else => {},
         }
     }
+
     telem.values = try vala.toOwnedSlice();
     try telems.append(telem);
 }
 
 fn parseAG(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) !TempXYX {
     var vals = try alloc.alloc(XYZ, data.len / 3);
-    const sc = try gpmf.extractValue(f32, state.scal[0]);
+    const sc = try state.scal[0].as(f32);
     for (0..data.len / 3, 0..) |i, o| {
         const b = i * 3;
         vals[o] = .{
-            .x = try gpmf.extractValue(f32, data[b]) / sc,
-            .y = try gpmf.extractValue(f32, data[b + 1]) / sc,
-            .z = try gpmf.extractValue(f32, data[b + 2]) / sc,
+            .x = try data[b].as(f32) / sc,
+            .y = try data[b + 1].as(f32) / sc,
+            .z = try data[b + 2].as(f32) / sc,
         };
     }
 

@@ -84,11 +84,15 @@ pub const Value = union(enum) {
     complex: struct { fmt: []const u8, data: []Value },
     nested: struct { fourcc: FourCC, data: []Value },
     unknown: struct { charId: u8, a1: usize, a2: i32, stuff: [][]u8 },
+
+    pub fn as(self: Value, comptime T: type) ConversionError!T {
+        return extractValue(T, self);
+    }
 };
 
 pub const ConversionError = error{ InvalidIntSrc, InvalidFloatSrc, InvalidStringSrc };
 
-pub fn extractValue(comptime T: type, v: Value) ConversionError!T {
+fn extractValue(comptime T: type, v: Value) ConversionError!T {
     const extractors = struct {
         fn Int(vi: Value) ConversionError!T {
             return switch (vi) {
