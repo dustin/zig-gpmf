@@ -409,8 +409,26 @@ fn parseUnits(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value, int
     }
     into.* = try alloc.alloc([]const u8, data.len);
     for (0..data.len, 0..) |i, o| {
-        into.*[o] = try data[i].as([]const u8);
+        const raw = try data[i].as([]const u8);
+        // Find first null terminator (if any)
+        const end = if (std.mem.indexOfScalar(u8, raw, 0)) |null_pos|
+            null_pos
+        else
+            raw.len;
+        into.*[o] = raw[0..end];
     }
+}
+
+test parseUnits {
+    const data = [_]gpmf.Value{
+        .{ .c = "m/s" },
+        .{ .c = .{ 'm', 'x', 0 } },
+    };
+    var units = std.ArrayList([]const u8).init(std.testing.allocator);
+    try parseUnits(std.testing.allocator, &data, &units);
+    try std.testing.expectEqual(units.items.len, 2);
+    try std.testing.expectEqual(units.items[0], "m/s");
+    try std.testing.expectEqual(units.items[1], "m");
 }
 
 fn parseAG(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) !TempXYX {

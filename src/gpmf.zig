@@ -2,52 +2,53 @@ const std = @import("std");
 const testing = std.testing;
 const zeit = @import("zeit");
 
+/// A FourCC is a 4-byte identifier specified by GPMF.
 pub const FourCC = [4]u8;
 
+/// True if two FourCCs are equal.
 pub inline fn eqFourCC(a: FourCC, b: FourCC) bool {
     return a[0] == b[0] and a[1] == b[1] and a[2] == b[2] and a[3] == b[3];
 }
 
-// Type Char	Definition	typedef	Comment
-// b	single byte signed integer	int8_t	-128 to 127
-// B	single byte unsigned integer	uint8_t	0 to 255
-// c	single byte 'c' style ASCII character string	char	Optionally NULL terminated - size/repeat sets the length
-// d	64-bit double precision (IEEE 754)	double
-// f	32-bit float (IEEE 754)	float
-// F	32-bit four character key -- FourCC	char fourcc[4]
-// G	128-bit ID (like UUID)	uint8_t guid[16]
-// j	64-bit signed unsigned number	int64_t
-// J	64-bit unsigned unsigned number	uint64_t
-// l	32-bit signed integer	int32_t
-// L	32-bit unsigned integer	uint32_t
-// q	32-bit Q Number Q15.16	uint32_t	16-bit integer (A) with 16-bit fixed point (B) for A.B value (range -32768.0 to 32767.99998)
-// Q	64-bit Q Number Q31.32	uint64_t	32-bit integer (A) with 32-bit fixed point (B) for A.B value.
-// s	16-bit signed integer	int16_t	-32768 to 32768
-// S	16-bit unsigned integer	uint16_t	0 to 65536
-// U	UTC Date and Time string	char utcdate[16]	Date + UTC Time format yymmddhhmmss.sss - (years 20xx covered)
-// ?	data structure is complex	TYPE	Structure is defined with a preceding TYPE
-// null	Nested metadata	uint32_t	The data within is GPMF structured KLV data
-
 /// A Value within a GPMF stream.
 pub const Value = union(enum) {
+    /// A single byte signed integer (-128 to 127)
     b: i8,
+    /// A single byte unsigned integer (0 to 255)
     B: u8,
+    /// A single byte 'c' style ASCII character string (optionally NULL terminated)
     c: []const u8,
+    /// A 64-bit double precision (IEEE 754)
     d: f64,
+    /// A 32-bit float (IEEE 754)
     f: f32,
+    /// A 32-bit four character key -- FourCC
     F: FourCC,
+    /// A 128-bit ID (like UUID)
     G: [16]u8,
+    /// A 64-bit signed unsigned number
     j: i64,
+    /// A 64-bit unsigned unsigned number
     J: u64,
+    /// A 32-bit signed integer
     l: i32,
+    /// A 32-bit unsigned integer
     L: u32,
+    /// A 32-bit Q Number Q15.16
     q: u32,
+    /// A 64-bit Q Number Q31.32
     Q: u64,
+    /// A 16-bit signed integer
     s: i16,
+    /// A 16-bit unsigned integer
     S: u16,
+    /// A UTC Date and Time value
     U: zeit.Instant,
+    /// A complex data structure.  The format is a string of characters that describe the data structure.
     complex: struct { fmt: []const u8, data: []Value },
+    /// A nested data structure with an identifier.
     nested: struct { fourcc: FourCC, data: []Value },
+    /// An unknown data structure
     unknown: struct { charId: u8, a1: usize, a2: i32, stuff: [][]u8 },
 
     /// Cast a Value to the specified type.
