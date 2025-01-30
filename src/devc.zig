@@ -94,6 +94,7 @@ fn telemCmp(_: void, a: Telemetry, b: Telemetry) bool {
     return (a.tsmp < b.tsmp);
 }
 
+/// High level representation of device telemetry.
 pub const DEVC = struct {
     id: u32,
     name: []const u8,
@@ -108,7 +109,13 @@ pub const DEVC = struct {
     }
 };
 
-pub fn mkDEVC(oalloc: std.mem.Allocator, fcc: gpmf.FourCC, data: []gpmf.Value) anyerror!DEVC {
+/// Build a DEVC from a parsed stream of GPMF data.
+/// The GPMF data should've been parsed by gpmf.parse()
+pub fn mkDEVC(oalloc: std.mem.Allocator, data: gpmf.Parsed) anyerror!DEVC {
+    if (data.value != .nested) {
+        return error.Invalid;
+    }
+    const fcc = data.value.nested.fourcc;
     if (!gpmf.eqFourCC(fcc, gpmf.DEVC)) {
         std.debug.print("unexpecdted fourcc making a DEVC: {s}\n", .{fcc});
         return error.Invalid;
@@ -128,7 +135,7 @@ pub fn mkDEVC(oalloc: std.mem.Allocator, fcc: gpmf.FourCC, data: []gpmf.Value) a
         .ignored = hm,
     };
     var telems = std.ArrayList(Telemetry).init(alloc);
-    for (data) |v| {
+    for (data.value.nested.data) |v| {
         switch (v) {
             .nested => {
                 const nested = v.nested;

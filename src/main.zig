@@ -24,7 +24,7 @@ pub fn main() !void {
             },
         };
         defer parsed.deinit();
-        const d = try devc.mkDEVC(allocator, parsed.value.nested.fourcc, parsed.value.nested.data);
+        const d = try devc.mkDEVC(allocator, parsed);
         defer d.deinit();
         std.debug.print("DEVC: id={d}, name: {s}\n", .{ d.id, d.name });
         for (d.telems) |t| {

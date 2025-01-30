@@ -174,6 +174,7 @@ pub const Parsed = struct {
     }
 };
 
+/// Parse a stream of GPMF data into a low-level stream of parsed values.
 pub fn parse(allocator: std.mem.Allocator, input: std.io.AnyReader) anyerror!Parsed {
     var arena = try allocator.create(std.heap.ArenaAllocator);
     errdefer allocator.destroy(arena);
