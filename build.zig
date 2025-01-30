@@ -95,4 +95,20 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_lib_unit_tests.step);
     test_step.dependOn(&run_exe_unit_tests.step);
+
+    {
+        const docs_step = b.step("docs", "Build the DEVC docs");
+        const docs_obj = b.addObject(.{
+            .name = "devc",
+            .root_source_file = b.path("src/devc.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        const docs = docs_obj.getEmittedDocs();
+        docs_step.dependOn(&b.addInstallDirectory(.{
+            .source_dir = docs,
+            .install_dir = .prefix,
+            .install_subdir = "docs",
+        }).step);
+    }
 }
