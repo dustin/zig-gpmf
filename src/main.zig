@@ -76,7 +76,7 @@ pub fn main() !void {
         var iterator = d.ignored.iterator();
         std.debug.print("Ignored:\n", .{});
         while (iterator.next()) |entry| {
-            std.debug.print("  Entry: {s} {d}\n", .{ entry.key_ptr.*, entry.value_ptr.* });
+            std.debug.print("  {s} {d}\n", .{ entry.key_ptr.*, entry.value_ptr.* });
         }
     }
 }
