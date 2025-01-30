@@ -68,7 +68,6 @@ pub fn main() !void {
                             try showGPS(9, gps);
                         }
                     },
-                    else => {},
                 }
             }
         }

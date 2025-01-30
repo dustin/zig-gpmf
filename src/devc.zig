@@ -14,12 +14,14 @@ pub const TempXYX = struct {
     vals: []XYZ,
 };
 
+/// Location of a face in an image.
 pub const Face = struct {
     id: i32,
     x: f32,
     y: f32,
     w: f32,
     h: f32,
+    /// Confidence of a smile detection.
     smile: f32,
 };
 
@@ -61,25 +63,30 @@ fn resolveLocation(fcc: gpmf.FourCC) ?Location {
     return locMap.get(&fcc);
 }
 
+/// Probability that the scene is of a certain type.
 pub const SceneScore = struct {
     Urban: f32,
     Indoor: f32,
     Water: f32,
     Vegetation: f32,
     Beach: f32,
+    Snow: f32,
 };
 
 pub const TVal = union(enum) {
-    Unknown: []gpmf.Value,
     Accl: TempXYX,
     Gyro: TempXYX,
     Faces: []Face,
+    /// Older-style GPS readings
     GPS5: []GPSReading,
+    /// Newer style GPS readings (better frequency and precision)
     GPS9: []GPSReading,
     AudioLevel: AudioLevel,
     Scene: SceneScore,
 };
 
+/// A named collection of telemetry data.
+/// The telemetry values should generally be considered uniform within this collection.
 pub const Telemetry = struct {
     stmp: u64,
     tsmp: u64,
@@ -100,6 +107,7 @@ pub const DEVC = struct {
     name: []const u8,
     telems: []Telemetry,
     arena: *std.heap.ArenaAllocator,
+    /// Bits of the telemetry stream that were not handled (along with their cardinality).
     ignored: std.AutoHashMap(gpmf.FourCC, u32),
     pub fn deinit(self: @This()) void {
         const allocator = self.arena.child_allocator;
@@ -181,7 +189,7 @@ fn parseAudioLevel(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value
 }
 
 fn parseScene(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
-    var scn = TVal{ .Scene = .{ .Beach = 0, .Urban = 0, .Indoor = 0, .Water = 0, .Vegetation = 0 } };
+    var scn = TVal{ .Scene = .{ .Beach = 0, .Urban = 0, .Indoor = 0, .Water = 0, .Vegetation = 0, .Snow = 0 } };
     for (data) |nd| {
         const want: []const u8 = "Ff";
         if (nd != .complex) {
@@ -200,7 +208,7 @@ fn parseScene(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
             .Water => scn.Scene.Water = score,
             .Vegetation => scn.Scene.Vegetation = score,
             .Beach => scn.Scene.Beach = score,
-            else => {},
+            .Snow => scn.Scene.Snow = score,
         }
     }
     return scn;
