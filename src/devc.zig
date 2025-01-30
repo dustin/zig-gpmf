@@ -1,7 +1,9 @@
 const std = @import("std");
 const gpmf = @import("gpmf.zig");
 const zeit = @import("zeit");
+const constants = @import("constants.zig");
 
+/// A 3D vector.
 pub const XYZ = struct {
     x: f32,
     y: f32,
@@ -25,6 +27,8 @@ pub const Face = struct {
     smile: f32,
 };
 
+/// A GPS reading.
+/// This may be from a GPS5 or GPS9 reading.
 pub const GPSReading = struct {
     lat: f64,
     lon: f64,
@@ -36,12 +40,13 @@ pub const GPSReading = struct {
     fix: u32,
 };
 
+/// Audio levels.
 pub const AudioLevel = struct {
     rms: []f32,
     peak: []f32,
 };
 
-pub const Location = enum {
+const Location = enum {
     Snow,
     Urban,
     Indoor,
@@ -73,6 +78,8 @@ pub const SceneScore = struct {
     Snow: f32,
 };
 
+/// A telemetry value.
+/// Some values contain multiple readings.
 pub const TVal = union(enum) {
     Accl: TempXYX,
     Gyro: TempXYX,
@@ -124,7 +131,7 @@ pub fn mkDEVC(oalloc: std.mem.Allocator, data: gpmf.Parsed) anyerror!DEVC {
         return error.Invalid;
     }
     const fcc = data.value.nested.fourcc;
-    if (!gpmf.eqFourCC(fcc, gpmf.DEVC)) {
+    if (!gpmf.eqFourCC(fcc, constants.DEVC)) {
         std.debug.print("unexpecdted fourcc making a DEVC: {s}\n", .{fcc});
         return error.Invalid;
     }
@@ -147,11 +154,11 @@ pub fn mkDEVC(oalloc: std.mem.Allocator, data: gpmf.Parsed) anyerror!DEVC {
         switch (v) {
             .nested => {
                 const nested = v.nested;
-                if (gpmf.eqFourCC(nested.fourcc, gpmf.DVID)) {
+                if (gpmf.eqFourCC(nested.fourcc, constants.DVID)) {
                     devc.id = try nested.data[0].as(u32);
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.DVNM)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.DVNM)) {
                     devc.name = try nested.data[0].as([]const u8);
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.STRM)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.STRM)) {
                     try recordTelemetry(alloc, &devc, &telems, nested.data);
                 }
             },
@@ -340,45 +347,45 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
         switch (v) {
             .nested => {
                 const nested = v.nested;
-                if (gpmf.eqFourCC(nested.fourcc, gpmf.STNM)) {
+                if (gpmf.eqFourCC(nested.fourcc, constants.STNM)) {
                     telem.name = try nested.data[0].as([]const u8);
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.TSMP)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.TSMP)) {
                     telem.tsmp = try nested.data[0].as(u64);
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.AALP)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.AALP)) {
                     try vala.append(try parseAudioLevel(alloc, &state, nested.data));
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.SCEN)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.SCEN)) {
                     try vala.append(try parseScene(alloc, &state, nested.data));
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.FACE)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.FACE)) {
                     if (try parseFaces(alloc, &state, nested.data)) |f| {
                         try vala.append(f);
                     }
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.SCAL)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.SCAL)) {
                     state.scal = nested.data;
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.TMPC)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.TMPC)) {
                     state.tmpc = try nested.data[0].as(f64);
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.GPSU)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.GPSU)) {
                     if (nested.data[0] == .U) {
                         state.gpsu = nested.data[0].U;
                     }
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.GPSF)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.GPSF)) {
                     state.gpsf = try nested.data[0].as(u32);
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.GPSP)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.GPSP)) {
                     state.gpsp = try nested.data[0].as(f64);
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.GPS5)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.GPS5)) {
                     try vala.append(try parseGPS5(alloc, &state, nested.data));
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.GPS9)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.GPS9)) {
                     if (try parseGPS9(alloc, &state, nested.data)) |gps| {
                         try vala.append(gps);
                     }
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.GPS9)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.GPS9)) {
                     std.debug.print(" GPS9: scal={any}\n    {any}\n", .{ state.scal, nested.data });
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.GYRO)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.GYRO)) {
                     try vala.append(TVal{ .Gyro = try parseAG(alloc, &state, nested.data) });
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.ACCL)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.ACCL)) {
                     try vala.append(TVal{ .Accl = try parseAG(alloc, &state, nested.data) });
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.UNIT)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.UNIT)) {
                     try parseUnits(alloc, &state, nested.data, &state.unit);
-                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.SIUN)) {
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.SIUN)) {
                     try parseUnits(alloc, &state, nested.data, &state.siunit);
                 } else {
                     const entry = try devc.ignored.getOrPut(nested.fourcc);

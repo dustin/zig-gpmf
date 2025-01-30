@@ -4,46 +4,8 @@ const zeit = @import("zeit");
 
 pub const FourCC = [4]u8;
 
-fn fourcc(s: []const u8) FourCC {
-    return [4]u8{ s[0], s[1], s[2], s[3] };
-}
-
-pub const DEVC: FourCC = fourcc("DEVC");
-pub const DVID: FourCC = fourcc("DVID");
-pub const DVNM: FourCC = fourcc("DVNM");
-pub const STRM: FourCC = fourcc("STRM");
-pub const STMP: FourCC = fourcc("STMP");
-pub const TSMP: FourCC = fourcc("TSMP");
-pub const STNM: FourCC = fourcc("STNM");
-pub const AALP: FourCC = fourcc("AALP");
-pub const ACCL: FourCC = fourcc("ACCL");
-pub const SCEN: FourCC = fourcc("SCEN");
-pub const SNOW: FourCC = fourcc("SNOW");
-pub const URBA: FourCC = fourcc("URBA");
-pub const INDO: FourCC = fourcc("INDO");
-pub const WATR: FourCC = fourcc("WATR");
-pub const VEGE: FourCC = fourcc("VEGE");
-pub const BEAC: FourCC = fourcc("BEAC");
-pub const URBN: FourCC = fourcc("URBN");
-pub const INDR: FourCC = fourcc("INDR");
-pub const FACE: FourCC = fourcc("FACE");
-pub const GPSF: FourCC = fourcc("GPSF");
-pub const GPSU: FourCC = fourcc("GPSU");
-pub const GPSP: FourCC = fourcc("GPSP");
-pub const GPS5: FourCC = fourcc("GPS5");
-pub const GPS9: FourCC = fourcc("GPS9");
-pub const SCAL: FourCC = fourcc("SCAL");
-pub const TMPC: FourCC = fourcc("TMPC");
-pub const GYRO: FourCC = fourcc("GYRO");
-pub const UNIT: FourCC = fourcc("UNIT");
-pub const SIUN: FourCC = fourcc("SIUN");
-
 pub inline fn eqFourCC(a: FourCC, b: FourCC) bool {
     return a[0] == b[0] and a[1] == b[1] and a[2] == b[2] and a[3] == b[3];
-}
-
-test "fourcc" {
-    try testing.expectEqual("GPMF".*, FourCC{ 'G', 'P', 'M', 'F' });
 }
 
 // Type Char	Definition	typedef	Comment
@@ -66,6 +28,7 @@ test "fourcc" {
 // ?	data structure is complex	TYPE	Structure is defined with a preceding TYPE
 // null	Nested metadata	uint32_t	The data within is GPMF structured KLV data
 
+/// A Value within a GPMF stream.
 pub const Value = union(enum) {
     b: i8,
     B: u8,
@@ -87,6 +50,7 @@ pub const Value = union(enum) {
     nested: struct { fourcc: FourCC, data: []Value },
     unknown: struct { charId: u8, a1: usize, a2: i32, stuff: [][]u8 },
 
+    /// Cast a Value to the specified type.
     pub fn as(self: Value, comptime T: type) ConversionError!T {
         return extractValue(T, self);
     }
@@ -163,6 +127,7 @@ const Parser = struct {
     ctype: []const u8,
 };
 
+/// A Value representing a parsed GPMF stream.
 pub const Parsed = struct {
     arena: *std.heap.ArenaAllocator,
     value: Value,
@@ -216,6 +181,13 @@ fn parseFourCC(input: std.io.AnyReader) !FourCC {
         fcc[i] = try input.readByte();
     }
     return fcc;
+}
+
+test parseFourCC {
+    var buf: [4]u8 = "GPMF".*;
+    var fbs = std.io.fixedBufferStream(&buf);
+    const fcc = try parseFourCC(fbs.reader().any());
+    try testing.expectEqual(fcc, FourCC{ 'G', 'P', 'M', 'F' });
 }
 
 fn replicated(p: *Parser, one: usize, l: usize, rpt: u16, t: u8) ![]Value {
@@ -368,14 +340,7 @@ fn parseComplex(p: *Parser, _: usize, rpt: u16) anyerror![]Value {
     return a;
 }
 
-test parseFourCC {
-    var buf: [4]u8 = "GPMF".*;
-    var fbs = std.io.fixedBufferStream(&buf);
-    const fcc = try parseFourCC(fbs.reader().any());
-    try testing.expectEqual(fcc, FourCC{ 'G', 'P', 'M', 'F' });
-}
-
-pub fn convertTimestamp(allocator: std.mem.Allocator, ts: []const u8) ![]u8 {
+fn convertTimestamp(allocator: std.mem.Allocator, ts: []const u8) ![]u8 {
     // Example input format: "241109183315.400"
     if (ts.len < 14) {
         return error.InputTooShort;
