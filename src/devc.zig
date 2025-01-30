@@ -98,6 +98,7 @@ pub const Telemetry = struct {
     stmp: u64,
     tsmp: u64,
     name: []const u8,
+    units: [][]const u8,
     values: []TVal,
 };
 
@@ -166,7 +167,6 @@ pub fn mkDEVC(oalloc: std.mem.Allocator, data: gpmf.Parsed) anyerror!DEVC {
         }
     }
     devc.telems = try telems.toOwnedSlice();
-    // std.mem.sort(u8, &data, {}, comptime std.sort.asc(u8));
     std.mem.sort(Telemetry, devc.telems, {}, telemCmp);
 
     return devc;
@@ -251,11 +251,10 @@ fn parseFaces(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !?T
             continue;
         }
     }
-    if (faces.items.len > 0) {
-        return TVal{ .Faces = try faces.toOwnedSlice() };
-    } else {
+    if (faces.items.len == 0) {
         return null;
     }
+    return TVal{ .Faces = try faces.toOwnedSlice() };
 }
 
 fn parseGPS5(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) !TVal {
@@ -409,26 +408,28 @@ fn parseUnits(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value, int
     }
     into.* = try alloc.alloc([]const u8, data.len);
     for (0..data.len, 0..) |i, o| {
-        const raw = try data[i].as([]const u8);
+        into.*[o] = try data[i].as([]const u8);
         // Find first null terminator (if any)
-        const end = if (std.mem.indexOfScalar(u8, raw, 0)) |null_pos|
-            null_pos
-        else
-            raw.len;
-        into.*[o] = raw[0..end];
+        if (std.mem.indexOfScalar(u8, into.*[o], 0)) |end| {
+            into.*[o] = into.*[o][0..end];
+        }
     }
 }
 
 test parseUnits {
-    const data = [_]gpmf.Value{
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+
+    var data = [_]gpmf.Value{
         .{ .c = "m/s" },
-        .{ .c = .{ 'm', 'x', 0 } },
+        .{ .c = "m\x00\x00" },
     };
-    var units = std.ArrayList([]const u8).init(std.testing.allocator);
-    try parseUnits(std.testing.allocator, &data, &units);
-    try std.testing.expectEqual(units.items.len, 2);
-    try std.testing.expectEqual(units.items[0], "m/s");
-    try std.testing.expectEqual(units.items[1], "m");
+    var units = try arena.allocator().alloc([]const u8, 2);
+
+    try parseUnits(arena.allocator(), undefined, &data, &units);
+    try std.testing.expectEqual(units.len, 2);
+    try std.testing.expectEqualStrings("m/s", units[0]);
+    try std.testing.expectEqualStrings("m", units[1]);
 }
 
 fn parseAG(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) !TempXYX {
