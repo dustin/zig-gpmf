@@ -156,6 +156,8 @@ const ParserState = struct {
     gpsp: f64,
     scal: []gpmf.Value,
     tmpc: f64,
+    unit: [][]const u8,
+    siunit: [][]const u8,
 };
 
 fn parseAudioLevel(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
@@ -315,6 +317,8 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
         .gpsp = 0,
         .scal = &.{},
         .tmpc = 0,
+        .unit = &.{},
+        .siunit = &.{},
     };
 
     for (data) |v| {
@@ -357,6 +361,10 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
                     try vala.append(TVal{ .Gyro = try parseAG(alloc, &state, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, gpmf.ACCL)) {
                     try vala.append(TVal{ .Accl = try parseAG(alloc, &state, nested.data) });
+                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.UNIT)) {
+                    try parseUnits(alloc, &state, nested.data, &state.unit);
+                } else if (gpmf.eqFourCC(nested.fourcc, gpmf.SIUN)) {
+                    try parseUnits(alloc, &state, nested.data, &state.siunit);
                 } else {
                     const entry = try devc.ignored.getOrPut(nested.fourcc);
                     if (!entry.found_existing) {
@@ -371,6 +379,16 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
 
     telem.values = try vala.toOwnedSlice();
     try telems.append(telem);
+}
+
+fn parseUnits(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value, into: *[][]const u8) !void {
+    if (into.len > 0) {
+        alloc.free(into.*);
+    }
+    into.* = try alloc.alloc([]const u8, data.len);
+    for (0..data.len, 0..) |i, o| {
+        into.*[o] = try data[i].as([]const u8);
+    }
 }
 
 fn parseAG(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) !TempXYX {

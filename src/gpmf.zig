@@ -35,6 +35,8 @@ pub const GPS9: FourCC = fourcc("GPS9");
 pub const SCAL: FourCC = fourcc("SCAL");
 pub const TMPC: FourCC = fourcc("TMPC");
 pub const GYRO: FourCC = fourcc("GYRO");
+pub const UNIT: FourCC = fourcc("UNIT");
+pub const SIUN: FourCC = fourcc("SIUN");
 
 pub inline fn eqFourCC(a: FourCC, b: FourCC) bool {
     return a[0] == b[0] and a[1] == b[1] and a[2] == b[2] and a[3] == b[3];
