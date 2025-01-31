@@ -144,36 +144,36 @@ fn extractValue(comptime T: type, v: Value) ConversionError!T {
 const ValueConversionTest = struct {
     value: Value,
 
-    pub fn transformBigger(self: *@This()) void {
-        switch (self.value) {
-            .b => self.value = .{ .B = self.value.as(u8) catch return },
-            .B => self.value = .{ .s = self.value.as(i16) catch return },
-            .s => self.value = .{ .S = self.value.as(u16) catch return },
-            .S => self.value = .{ .l = self.value.as(i32) catch return },
-            .l => self.value = .{ .L = self.value.as(u32) catch return },
-            .L => self.value = .{ .q = self.value.as(u32) catch return },
-            .q => self.value = .{ .j = self.value.as(i64) catch return },
-            .J => self.value = .{ .Q = self.value.as(u64) catch return },
-            // .Q => self.value = .{ .f = self.value.as(f32) catch return },
-            .f => self.value = .{ .d = self.value.as(f64) catch return },
-            else => {},
-        }
+    pub fn transformTob(self: *@This()) void {
+        self.value = .{ .b = self.value.as(i8) catch return };
     }
 
-    pub fn transformSmaller(self: *@This()) void {
-        switch (self.value) {
-            .d => self.value = .{ .f = self.value.as(f32) catch return },
-            // .f => self.value = .{ .Q = self.value.as(u64) catch return },
-            .Q => self.value = .{ .J = self.value.as(u64) catch return },
-            .j => self.value = .{ .q = self.value.as(u32) catch return },
-            .q => self.value = .{ .L = self.value.as(u32) catch return },
-            .L => self.value = .{ .l = self.value.as(i32) catch return },
-            .l => self.value = .{ .S = self.value.as(u16) catch return },
-            .S => self.value = .{ .s = self.value.as(i16) catch return },
-            .s => self.value = .{ .B = self.value.as(u8) catch return },
-            .B => self.value = .{ .b = self.value.as(i8) catch return },
-            else => {},
-        }
+    pub fn transformToB(self: *@This()) void {
+        self.value = .{ .B = self.value.as(u8) catch return };
+    }
+
+    pub fn transformTos(self: *@This()) void {
+        self.value = .{ .s = self.value.as(i16) catch return };
+    }
+
+    pub fn transformToS(self: *@This()) void {
+        self.value = .{ .S = self.value.as(u16) catch return };
+    }
+
+    pub fn transformTol(self: *@This()) void {
+        self.value = .{ .l = self.value.as(i32) catch return };
+    }
+
+    pub fn transformToL(self: *@This()) void {
+        self.value = .{ .L = self.value.as(u32) catch return };
+    }
+
+    pub fn transformToQ(self: *@This()) void {
+        self.value = .{ .q = self.value.as(u32) catch return };
+    }
+
+    pub fn transformToJ(self: *@This()) void {
+        self.value = .{ .J = self.value.as(u64) catch return };
     }
 
     pub fn check(_: *@This(), orig: Value, transformed: Value) bool {
@@ -189,16 +189,16 @@ test "Value Conversion Metamorphic Test" {
     const test_values = [_]Value{
         .{ .b = -42 },
         .{ .B = 200 },
-        .{ .s = -1000 },
-        .{ .S = 40000 },
-        .{ .l = -100000 },
-        .{ .L = 4000000 },
-        .{ .q = 123456 },
-        .{ .Q = 987654321 },
-        .{ .j = -9876543210 },
-        .{ .J = 9876543210 },
-        .{ .f = 3.14159 },
-        .{ .d = 2.71828 },
+        .{ .s = -32768 }, // i16 min, won't fit in i8
+        .{ .S = 65535 }, // u16 max, won't fit in u8
+        .{ .l = -2147483648 }, // i32 min, won't fit in i16
+        .{ .L = 4294967295 }, // u32 max, won't fit in u16
+        .{ .q = 4294967295 }, // u32 max
+        .{ .Q = 18446744073709551615 }, // u64 max
+        .{ .j = -9223372036854775808 }, // i64 min
+        .{ .J = 18446744073709551615 }, // u64 max
+        .{ .l = 1000000 },
+        .{ .s = 32767 }, // i16 max, won't fit in i8
     };
 
     for (test_values) |val| {
