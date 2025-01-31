@@ -19,6 +19,15 @@ pub inline fn eqFourCC(a: FourCC, b: FourCC) bool {
     return a[0] == b[0] and a[1] == b[1] and a[2] == b[2] and a[3] == b[3];
 }
 
+test eqFourCC {
+    const a = FourCC{ 'G', 'P', 'M', 'F' };
+    const b = FourCC{ 'G', 'P', 'M', 'F' };
+    const c = FourCC{ 'D', 'E', 'V', 'C' };
+
+    try testing.expect(eqFourCC(a, b));
+    try testing.expect(!eqFourCC(a, c));
+}
+
 /// A Value within a GPMF stream.
 pub const Value = union(enum) {
     /// A single byte signed integer (-128 to 127)
@@ -129,6 +138,27 @@ fn extractValue(comptime T: type, v: Value) ConversionError!T {
             @compileError("Unable to extract '" ++ @typeName(T) ++ "'");
         },
     }
+}
+
+test "Value conversion" {
+    // Integer conversions
+    const int_val = Value{ .l = 42 };
+    try testing.expectEqual(@as(i32, 42), try int_val.as(i32));
+    try testing.expectEqual(@as(i16, 42), try int_val.as(i16));
+    try testing.expectEqual(@as(f32, 42.0), try int_val.as(f32));
+
+    // Float conversions
+    const float_val = Value{ .f = 3.14 };
+    try testing.expectEqual(@as(f32, 3.14), try float_val.as(f32));
+    try testing.expectEqual(@as(u8, 3), try float_val.as(u8));
+
+    // String conversion
+    const str_val = Value{ .c = "test" };
+    try testing.expectEqualStrings("test", try str_val.as([]const u8));
+
+    // Error cases
+    const bad_int = Value{ .c = "not a number" };
+    try testing.expectError(error.InvalidIntSrc, bad_int.as(i32));
 }
 
 const Parser = struct {
@@ -333,7 +363,10 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
             }
             return a;
         },
-        else => std.debug.panic("no value parser for: {c} {d}\n", .{ t, t }),
+        else => {
+            std.debug.print("no value parser for: {c} {d}\n", .{ t, t });
+            return error.InvalidType;
+        },
     };
 }
 
@@ -385,4 +418,62 @@ test convertTimestamp {
     defer allocator.free(result);
 
     try testing.expectEqualStrings(result, want);
+}
+
+test "parseValue error cases" {
+    // Test invalid type character
+    var input = [_]u8{0};
+    var fbs = std.io.fixedBufferStream(&input);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+
+    var p = Parser{
+        .input = fbs.reader().any(),
+        .alloc = arena.allocator(),
+        .ctype = "",
+    };
+
+    // This should panic with invalid type - you might want to change the implementation
+    // to return an error instead of panicking
+    try testing.expectError(error.InvalidType, parseValue(&p, 'X', 1, 1));
+}
+
+test "parse invalid GPMF data" {
+    const allocator = testing.allocator;
+
+    // Test cases with invalid data
+    const TestCase = struct {
+        name: []const u8,
+        data: []const u8,
+        expected_error: anyerror,
+    };
+
+    const test_cases = [_]TestCase{
+        .{
+            .name = "empty buffer",
+            .data = &[_]u8{},
+            .expected_error = error.EndOfStream,
+        },
+        .{
+            .name = "incomplete FourCC",
+            .data = &[_]u8{ 'G', 'P', 'M' }, // Missing last character
+            .expected_error = error.EndOfStream,
+        },
+        .{
+            .name = "truncated after type",
+            .data = &[_]u8{ 'G', 'P', 'M', 'F', 'L' }, // Missing size and repeat count
+            .expected_error = error.EndOfStream,
+        },
+        .{
+            .name = "truncated data",
+            .data = &[_]u8{ 'G', 'P', 'M', 'F', 'L', 4, 0, 2, 0 }, // Claims 2 L-type values but has no data
+            .expected_error = error.EndOfStream,
+        },
+    };
+
+    for (test_cases) |tc| {
+        var fbs = std.io.fixedBufferStream(tc.data);
+        const result = parse(allocator, fbs.reader().any());
+        try testing.expectError(tc.expected_error, result);
+    }
 }
