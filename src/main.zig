@@ -29,6 +29,8 @@ pub fn main() !void {
         std.debug.print("DEVC: id={d}, name: {s}\n", .{ d.id, d.name });
         for (d.telems) |t| {
             std.debug.print("  Telemetry: stmp={d}, tsmp={d}, name: {s}\n", .{ t.stmp, t.tsmp, t.name });
+            printUnits("Units", t.units);
+            printUnits("SI Units", t.siunits);
             for (t.values) |v| {
                 switch (v) {
                     .AudioLevel => {
@@ -78,6 +80,20 @@ pub fn main() !void {
             std.debug.print("  {s} {d}\n", .{ entry.key_ptr.*, entry.value_ptr.* });
         }
     }
+}
+
+fn printUnits(name: []const u8, units: [][]const u8) void {
+    if (units.len == 0) return;
+    std.debug.print("    {s}", .{name});
+    for (units, 0..units.len) |u, i| {
+        if (i > 0) {
+            std.debug.print(", ", .{});
+        }
+        for (u) |c| {
+            std.debug.print("{u}", .{c});
+        }
+    }
+    std.debug.print("\n", .{});
 }
 
 fn showGPS(v: u8, gps: devc.GPSReading) !void {

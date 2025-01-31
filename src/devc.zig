@@ -99,6 +99,7 @@ pub const Telemetry = struct {
     tsmp: u64,
     name: []const u8,
     units: [][]const u8,
+    siunits: [][]const u8,
     values: []TVal,
 };
 
@@ -178,8 +179,6 @@ const ParserState = struct {
     gpsp: f64,
     scal: []gpmf.Value,
     tmpc: f64,
-    unit: [][]const u8,
-    siunit: [][]const u8,
 };
 
 fn parseAudioLevel(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
@@ -330,7 +329,7 @@ fn parseGPS9(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) 
 }
 
 fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList(Telemetry), data: []gpmf.Value) !void {
-    var telem = Telemetry{ .stmp = 0, .tsmp = 0, .name = "", .values = &.{} };
+    var telem = Telemetry{ .stmp = 0, .tsmp = 0, .name = "", .values = &.{}, .units = &.{}, .siunits = &.{} };
     var vala = std.ArrayList(TVal).init(alloc);
     var state = ParserState{
         .gpsu = try zeit.instant(.{}),
@@ -338,8 +337,6 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
         .gpsp = 0,
         .scal = &.{},
         .tmpc = 0,
-        .unit = &.{},
-        .siunit = &.{},
     };
 
     for (data) |v| {
@@ -383,9 +380,9 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.ACCL)) {
                     try vala.append(TVal{ .Accl = try parseAG(alloc, &state, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.UNIT)) {
-                    try parseUnits(alloc, &state, nested.data, &state.unit);
+                    try parseUnits(alloc, &state, nested.data, &telem.units);
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.SIUN)) {
-                    try parseUnits(alloc, &state, nested.data, &state.siunit);
+                    try parseUnits(alloc, &state, nested.data, &telem.siunits);
                 } else {
                     const entry = try devc.ignored.getOrPut(nested.fourcc);
                     if (!entry.found_existing) {
