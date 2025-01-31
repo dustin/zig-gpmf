@@ -28,6 +28,7 @@ pub fn main() !void {
         defer d.deinit();
         std.debug.print("DEVC: id={d}, name: {s}\n", .{ d.id, d.name });
         for (d.telems) |t| {
+            if (t.values.len == 0) continue;
             std.debug.print("  Telemetry: stmp={d}, tsmp={d}, name: {s}\n", .{ t.stmp, t.tsmp, t.name });
             printUnits("Units", t.units);
             printUnits("SI Units", t.siunits);
@@ -84,7 +85,7 @@ pub fn main() !void {
 
 fn printUnits(name: []const u8, units: [][]const u8) void {
     if (units.len == 0) return;
-    std.debug.print("    {s}", .{name});
+    std.debug.print("    {s}: ", .{name});
     for (units, 0..units.len) |u, i| {
         if (i > 0) {
             std.debug.print(", ", .{});

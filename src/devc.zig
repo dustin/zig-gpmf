@@ -399,17 +399,38 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
     try telems.append(telem);
 }
 
+fn fixUnits(alloc: std.mem.Allocator, data: []const u8) ![]const u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    for (data) |c| {
+        if (c == 0) {
+            break;
+        }
+        if (c == 0xB0) { // This is an old-style degree symbol we'll convert to utf8.
+            try buf.append(0xc2);
+            try buf.append(0xb2);
+            continue;
+        }
+        try buf.append(c);
+    }
+    return buf.toOwnedSlice();
+}
+
+test fixUnits {
+    const got = try fixUnits(std.testing.allocator, "abc");
+    defer std.testing.allocator.free(got);
+    try std.testing.expectEqualStrings("abc", got);
+    const got2 = try fixUnits(std.testing.allocator, "abc\xb0");
+    defer std.testing.allocator.free(got2);
+    try std.testing.expectEqualStrings("abc\xc2\xb2", got2);
+}
+
 fn parseUnits(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value, into: *[][]const u8) !void {
     if (into.len > 0) {
         alloc.free(into.*);
     }
     into.* = try alloc.alloc([]const u8, data.len);
     for (0..data.len, 0..) |i, o| {
-        into.*[o] = try data[i].as([]const u8);
-        // Find first null terminator (if any)
-        if (std.mem.indexOfScalar(u8, into.*[o], 0)) |end| {
-            into.*[o] = into.*[o][0..end];
-        }
+        into.*[o] = try fixUnits(alloc, try data[i].as([]const u8));
     }
 }
 
@@ -420,13 +441,15 @@ test parseUnits {
     var data = [_]gpmf.Value{
         .{ .c = "m/s" },
         .{ .c = "m\x00\x00" },
+        .{ .c = "m\xb0" },
     };
-    var units = try arena.allocator().alloc([]const u8, 2);
+    var units = try arena.allocator().alloc([]const u8, 3);
 
     try parseUnits(arena.allocator(), undefined, &data, &units);
-    try std.testing.expectEqual(units.len, 2);
+    try std.testing.expectEqual(units.len, 3);
     try std.testing.expectEqualStrings("m/s", units[0]);
     try std.testing.expectEqualStrings("m", units[1]);
+    try std.testing.expectEqualStrings("m²", units[2]);
 }
 
 fn parseAG(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) !TempXYX {
