@@ -15,24 +15,15 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    const lib = b.addStaticLibrary(.{
-        .name = "zig-gpmf",
-        // In this case the main source file is merely a path, however, in more
-        // complicated build scripts, this could be a generated file.
-        .root_source_file = b.path("src/devc.zig"),
-        .target = target,
-        .optimize = optimize,
+    const gpmf = b.addModule("gpmf", .{
+        .root_source_file = b.path("src/gpmf.zig"),
     });
-
-    // This declares intent for the library to be installed into the standard
-    // location when the user invokes the "install" step (the default step when
-    // running `zig build`).
-    b.installArtifact(lib);
 
     const zeit = b.dependency("zeit", .{
         .target = target,
         .optimize = optimize,
     });
+    gpmf.addImport("zeit", zeit.module("zeit"));
 
     const exe = b.addExecutable(.{
         .name = "zig-gpmf",
@@ -40,7 +31,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.root_module.addImport("zeit", zeit.module("zeit"));
+    exe.root_module.addImport("gpmf", gpmf);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -70,30 +61,16 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const exe_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/main.zig"),
+    const unit_tests = b.addTest(.{
+        .root_source_file = b.path("src/gpmf.zig"),
         .target = target,
         .optimize = optimize,
     });
-    const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
+    unit_tests.root_module.addImport("zeit", zeit.module("zeit"));
+    const run_unit_tests = b.addRunArtifact(unit_tests);
 
-    // Similar to creating the run step earlier, this exposes a `test` step to
-    // the `zig build --help` menu, providing a way for the user to request
-    // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
-    const srcfiles = [_][]const u8{ "src/devc.zig", "src/constants.zig", "src/gpmf.zig" };
-    for (srcfiles) |srcfile| {
-        const utests = b.addTest(.{
-            .root_source_file = b.path(srcfile),
-            .target = target,
-            .optimize = optimize,
-        });
-        utests.root_module.addImport("zeit", zeit.module("zeit"));
-
-        const run_lib_utests = b.addRunArtifact(utests);
-        test_step.dependOn(&run_lib_utests.step);
-    }
-    test_step.dependOn(&run_exe_unit_tests.step);
+    test_step.dependOn(&run_unit_tests.step);
 
     {
         const docs_step = b.step("docs", "Build the DEVC docs");

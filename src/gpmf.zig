@@ -2,6 +2,15 @@ const std = @import("std");
 const testing = std.testing;
 const zeit = @import("zeit");
 
+pub const devc = @import("devc.zig");
+
+comptime {
+    if (@import("builtin").is_test) {
+        _ = @import("devc.zig");
+        _ = @import("constants.zig");
+    }
+}
+
 /// A FourCC is a 4-byte identifier specified by GPMF.
 pub const FourCC = [4]u8;
 

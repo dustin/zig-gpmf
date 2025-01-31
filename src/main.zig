@@ -1,6 +1,6 @@
 const std = @import("std");
-const gpmf = @import("gpmf.zig");
-const devc = @import("devc.zig");
+const gpmf = @import("gpmf");
+const devc = gpmf.devc;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
