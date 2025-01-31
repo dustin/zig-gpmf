@@ -70,30 +70,29 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    // Creates a step for unit testing. This only builds the test executable
-    // but does not run it.
-    const lib_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/devc.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
-
     const exe_unit_tests = b.addTest(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
-    lib_unit_tests.root_module.addImport("zeit", zeit.module("zeit"));
-
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
 
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request
     // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_lib_unit_tests.step);
+    const srcfiles = [_][]const u8{ "src/devc.zig", "src/constants.zig", "src/gpmf.zig" };
+    for (srcfiles) |srcfile| {
+        const utests = b.addTest(.{
+            .root_source_file = b.path(srcfile),
+            .target = target,
+            .optimize = optimize,
+        });
+        utests.root_module.addImport("zeit", zeit.module("zeit"));
+
+        const run_lib_utests = b.addRunArtifact(utests);
+        test_step.dependOn(&run_lib_utests.step);
+    }
     test_step.dependOn(&run_exe_unit_tests.step);
 
     {
