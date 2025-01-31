@@ -37,7 +37,7 @@ fn fourcc(s: []const u8) gpmf.FourCC {
     return [4]u8{ s[0], s[1], s[2], s[3] };
 }
 
-test "fourcc" {
+test fourcc {
     try testing.expectEqual("GPMF".*, gpmf.FourCC{ 'G', 'P', 'M', 'F' });
-    try testing.expectEqual(fourcc("GPMF").*, gpmf.FourCC{ 'G', 'P', 'M', 'F' });
+    try testing.expectEqual(fourcc("GPMF"), gpmf.FourCC{ 'G', 'P', 'M', 'F' });
 }
