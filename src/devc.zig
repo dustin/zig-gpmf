@@ -383,6 +383,8 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
                     try parseUnits(alloc, &state, nested.data, &telem.units);
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.SIUN)) {
                     try parseUnits(alloc, &state, nested.data, &telem.siunits);
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.STMP)) {
+                    telem.stmp = try nested.data[0].as(u64);
                 } else {
                     const entry = try devc.ignored.getOrPut(nested.fourcc);
                     if (!entry.found_existing) {
