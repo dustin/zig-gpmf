@@ -27,6 +27,10 @@
             .url = "https://github.com/rockorager/zeit/archive/refs/tags/v0.4.4.tar.gz",
             .hash = "12204b653c90b503f89e2f1a73c4754b83fb7275c100c81872deaca12c9f17e334ec",
         },
+        .marble = .{
+            .url = "https://github.com/cryptocode/marble/archive/refs/heads/main.zip",
+            .hash = "12207f2337e39dab33ff52b76f8ddbde39aafba6ee3fd80e11c3089b6bebba30cb5f",
+        },
     },
     .paths = .{
         "build.zig",

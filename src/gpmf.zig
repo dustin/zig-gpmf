@@ -1,6 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 const zeit = @import("zeit");
+const marble = @import("marble");
 
 pub const devc = @import("devc.zig");
 
@@ -75,24 +76,24 @@ pub const Value = union(enum) {
     }
 };
 
-pub const ConversionError = error{ InvalidIntSrc, InvalidFloatSrc, InvalidStringSrc };
+pub const ConversionError = error{ InvalidIntValue, InvalidIntSrc, InvalidFloatSrc, InvalidStringSrc };
 
 fn extractValue(comptime T: type, v: Value) ConversionError!T {
     const extractors = struct {
         fn Int(vi: Value) ConversionError!T {
             return switch (vi) {
-                .b => @intCast(vi.b),
-                .B => @intCast(vi.B),
+                .b => std.math.cast(T, vi.b) orelse return error.InvalidIntValue,
+                .B => std.math.cast(T, vi.B) orelse return error.InvalidIntValue,
                 .d => @intFromFloat(vi.d),
                 .f => @intFromFloat(vi.f),
-                .j => @intCast(vi.j),
-                .J => @intCast(vi.J),
-                .l => @intCast(vi.l),
-                .L => @intCast(vi.L),
-                .q => @intCast(vi.q),
-                .Q => @intCast(vi.Q),
-                .s => @intCast(vi.s),
-                .S => @intCast(vi.S),
+                .j => std.math.cast(T, vi.j) orelse return error.InvalidIntValue,
+                .J => std.math.cast(T, vi.J) orelse return error.InvalidIntValue,
+                .l => std.math.cast(T, vi.l) orelse return error.InvalidIntValue,
+                .L => std.math.cast(T, vi.L) orelse return error.InvalidIntValue,
+                .q => std.math.cast(T, vi.q) orelse return error.InvalidIntValue,
+                .Q => std.math.cast(T, vi.Q) orelse return error.InvalidIntValue,
+                .s => std.math.cast(T, vi.s) orelse return error.InvalidIntValue,
+                .S => std.math.cast(T, vi.S) orelse return error.InvalidIntValue,
                 else => return error.InvalidIntSrc,
             };
         }
@@ -137,6 +138,73 @@ fn extractValue(comptime T: type, v: Value) ConversionError!T {
         else => {
             @compileError("Unable to extract '" ++ @typeName(T) ++ "'");
         },
+    }
+}
+
+const ValueConversionTest = struct {
+    value: Value,
+
+    pub fn transformBigger(self: *@This()) void {
+        switch (self.value) {
+            .b => self.value = .{ .B = self.value.as(u8) catch return },
+            .B => self.value = .{ .s = self.value.as(i16) catch return },
+            .s => self.value = .{ .S = self.value.as(u16) catch return },
+            .S => self.value = .{ .l = self.value.as(i32) catch return },
+            .l => self.value = .{ .L = self.value.as(u32) catch return },
+            .L => self.value = .{ .q = self.value.as(u32) catch return },
+            .q => self.value = .{ .j = self.value.as(i64) catch return },
+            .J => self.value = .{ .Q = self.value.as(u64) catch return },
+            // .Q => self.value = .{ .f = self.value.as(f32) catch return },
+            .f => self.value = .{ .d = self.value.as(f64) catch return },
+            else => {},
+        }
+    }
+
+    pub fn transformSmaller(self: *@This()) void {
+        switch (self.value) {
+            .d => self.value = .{ .f = self.value.as(f32) catch return },
+            // .f => self.value = .{ .Q = self.value.as(u64) catch return },
+            .Q => self.value = .{ .J = self.value.as(u64) catch return },
+            .j => self.value = .{ .q = self.value.as(u32) catch return },
+            .q => self.value = .{ .L = self.value.as(u32) catch return },
+            .L => self.value = .{ .l = self.value.as(i32) catch return },
+            .l => self.value = .{ .S = self.value.as(u16) catch return },
+            .S => self.value = .{ .s = self.value.as(i16) catch return },
+            .s => self.value = .{ .B = self.value.as(u8) catch return },
+            .B => self.value = .{ .b = self.value.as(i8) catch return },
+            else => {},
+        }
+    }
+
+    pub fn check(_: *@This(), orig: Value, transformed: Value) bool {
+        return (orig.as(i65) catch return false) == (transformed.as(i65) catch return false);
+    }
+
+    pub fn execute(self: *@This()) Value {
+        return self.value;
+    }
+};
+
+test "Value Conversion Metamorphic Test" {
+    const test_values = [_]Value{
+        .{ .b = -42 },
+        .{ .B = 200 },
+        .{ .s = -1000 },
+        .{ .S = 40000 },
+        .{ .l = -100000 },
+        .{ .L = 4000000 },
+        .{ .q = 123456 },
+        .{ .Q = 987654321 },
+        .{ .j = -9876543210 },
+        .{ .J = 9876543210 },
+        .{ .f = 3.14159 },
+        .{ .d = 2.71828 },
+    };
+
+    for (test_values) |val| {
+        var t = ValueConversionTest{ .value = val };
+        // std.debug.print("testing {any}\n", .{val});
+        try std.testing.expect(try marble.run(ValueConversionTest, &t, .{}));
     }
 }
 

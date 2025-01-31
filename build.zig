@@ -23,6 +23,11 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const marble = b.dependency("marble", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     gpmf.addImport("zeit", zeit.module("zeit"));
 
     const exe = b.addExecutable(.{
@@ -67,6 +72,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     unit_tests.root_module.addImport("zeit", zeit.module("zeit"));
+    unit_tests.root_module.addImport("marble", marble.module("marble"));
     const run_unit_tests = b.addRunArtifact(unit_tests);
 
     const test_step = b.step("test", "Run unit tests");
