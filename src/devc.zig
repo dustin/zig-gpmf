@@ -78,13 +78,23 @@ pub const SceneScore = struct {
     Snow: f32,
 };
 
+/// Predominant hues over the frame.
 pub const Hue = struct {
     hue: u8,
     weight: u8,
 
+    /// HSV value represented by this hue.
     pub fn hsv(self: Hue) f32 {
         return @as(f32, @floatFromInt(self.hue)) * 360.0 / 255.0;
     }
+};
+
+/// Quaternion for camera or image orientation.
+pub const Quaternion = struct {
+    w: f32,
+    x: f32,
+    y: f32,
+    z: f32,
 };
 
 /// A telemetry value.
@@ -104,6 +114,9 @@ pub const TVal = union(enum) {
     Uniformity: f32,
     WhiteBalance: u16,
     Shutter: f32,
+    ISO: u16,
+    CameraOrientation: []Quaternion,
+    ImageOrientation: []Quaternion,
 };
 
 /// A named collection of telemetry data.
@@ -409,6 +422,12 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
                     try vala.append(TVal{ .WhiteBalance = try avg(u16, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.SHUT)) {
                     try vala.append(TVal{ .Shutter = try avg(f32, nested.data) });
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.ISOE)) {
+                    try vala.append(TVal{ .ISO = try avg(u16, nested.data) });
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.CORI)) {
+                    try vala.append(TVal{ .CameraOrientation = try parseQuaternion(alloc, &state, nested.data) });
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.IORI)) {
+                    try vala.append(TVal{ .CameraOrientation = try parseQuaternion(alloc, &state, nested.data) });
                 } else {
                     const entry = try devc.ignored.getOrPut(nested.fourcc);
                     if (!entry.found_existing) {
@@ -424,6 +443,23 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
     telem.values = try vala.toOwnedSlice();
     try telems.append(telem);
 }
+
+fn parseQuaternion(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) ![]Quaternion {
+    var quats = try alloc.alloc(Quaternion, data.len / 4);
+    errdefer alloc.free(quats);
+    const scal = try state.scal[0].as(f32);
+    for (0..data.len / 4, 0..) |i, o| {
+        const b = i * 4;
+        quats[o] = .{
+            .w = (try data[b].as(f32)) / scal,
+            .x = (try data[b + 1].as(f32)) / scal,
+            .y = (try data[b + 2].as(f32)) / scal,
+            .z = (try data[b + 3].as(f32)) / scal,
+        };
+    }
+    return quats;
+}
+
 fn avg(comptime T: type, data: []gpmf.Value) !T {
     if (data.len == 0) {
         return 0;

@@ -37,6 +37,9 @@ pub fn main() !void {
                     .Shutter => {
                         std.debug.print("    Shutter: {d}\n", .{v.Shutter});
                     },
+                    .ISO => {
+                        std.debug.print("    ISO: {d}\n", .{v.ISO});
+                    },
                     .AudioLevel => {
                         const al = v.AudioLevel;
                         std.debug.print("    AudioLevel: rms={d}, peak={d}\n", .{ al.rms, al.peak });
@@ -86,6 +89,16 @@ pub fn main() !void {
                     .GPS9 => {
                         for (v.GPS9) |gps| {
                             try showGPS(9, gps);
+                        }
+                    },
+                    .CameraOrientation => {
+                        for (v.CameraOrientation) |o| {
+                            std.debug.print("    Camera orientation quaternion: (w={d}, x={d}, y={d}, z={d})\n", .{ o.w, o.x, o.y, o.z });
+                        }
+                    },
+                    .ImageOrientation => {
+                        for (v.ImageOrientation) |o| {
+                            std.debug.print("    Image orientation quaternion: (w={d}, x={d}, y={d}, z={d})\n", .{ o.w, o.x, o.y, o.z });
                         }
                     },
                 }
