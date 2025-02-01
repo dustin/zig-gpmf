@@ -53,8 +53,14 @@ pub fn main() !void {
                         }
                     },
                     .WhiteBalance => {
-                        std.debug.print("    Temperature: {d}K\n", .{v.WhiteBalance});
+                        std.debug.print("    {d}K\n", .{v.WhiteBalance});
                     },
+                    .WRGB => {
+                        for (v.WRGB) |w| {
+                            std.debug.print("    r={d} g={d} b={d}\n", .{ w.r, w.g, w.b });
+                        }
+                    },
+
                     .Uniformity => {
                         std.debug.print("    Uniformity: {d}\n", .{v.Uniformity});
                     },

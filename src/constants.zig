@@ -43,6 +43,7 @@ pub const IORI: gpmf.FourCC = fourcc("IORI");
 pub const MWET: gpmf.FourCC = fourcc("MWET");
 pub const WNDM: gpmf.FourCC = fourcc("WNDM");
 pub const GRAV: gpmf.FourCC = fourcc("GRAV");
+pub const WRGB: gpmf.FourCC = fourcc("WRGB");
 
 fn fourcc(s: []const u8) gpmf.FourCC {
     return [4]u8{ s[0], s[1], s[2], s[3] };

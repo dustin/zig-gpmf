@@ -97,6 +97,12 @@ pub const Quaternion = struct {
     z: f32,
 };
 
+pub const RGB = struct {
+    r: f32,
+    g: f32,
+    b: f32,
+};
+
 /// A telemetry value.
 /// Some values contain multiple readings.
 pub const TVal = union(enum) {
@@ -120,6 +126,8 @@ pub const TVal = union(enum) {
     MicWet: []u8,
     WindProcessing: []u8,
     Gravity: []XYZ,
+    /// White balance gains for RGB (x=R, y=G, z=B).
+    WRGB: []RGB,
 };
 
 /// A named collection of telemetry data.
@@ -437,6 +445,8 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
                     try vala.append(TVal{ .WindProcessing = try flatten(u8, alloc, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.GRAV)) {
                     try vala.append(try parseGravity(alloc, &state, nested.data));
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.WRGB)) {
+                    try vala.append(try parseRGB(alloc, &state, nested.data));
                 } else {
                     const entry = try devc.ignored.getOrPut(nested.fourcc);
                     if (!entry.found_existing) {
@@ -451,6 +461,19 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
 
     telem.values = try vala.toOwnedSlice();
     try telems.append(telem);
+}
+
+fn parseRGB(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
+    var vals = try alloc.alloc(RGB, data.len / 3);
+    for (0..data.len / 3, 0..) |i, o| {
+        const b = i * 3;
+        vals[o] = .{
+            .r = try data[b].as(f32),
+            .g = try data[b + 1].as(f32),
+            .b = try data[b + 2].as(f32),
+        };
+    }
+    return (TVal{ .WRGB = vals });
 }
 
 fn parseGravity(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) !TVal {
