@@ -2,11 +2,11 @@ const std = @import("std");
 const testing = std.testing;
 const zeit = @import("zeit");
 
-pub const devc = @import("devc.zig");
+pub const tstream = @import("tstream.zig");
 
 comptime {
     if (@import("builtin").is_test) {
-        _ = @import("devc.zig");
+        _ = @import("tstream.zig");
         _ = @import("constants.zig");
         _ = @import("gpmf_tests.zig");
     }

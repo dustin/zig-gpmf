@@ -84,10 +84,10 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_unit_tests.step);
 
     {
-        const docs_step = b.step("docs", "Build the DEVC docs");
+        const docs_step = b.step("docs", "Build the Telemetry Stream docs");
         const docs_obj = b.addObject(.{
-            .name = "devc",
-            .root_source_file = b.path("src/devc.zig"),
+            .name = "GoPro Telemetry Streams",
+            .root_source_file = b.path("src/tstream.zig"),
             .target = target,
             .optimize = optimize,
         });

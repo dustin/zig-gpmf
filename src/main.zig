@@ -1,6 +1,6 @@
 const std = @import("std");
 const gpmf = @import("gpmf");
-const devc = gpmf.devc;
+const tstream = gpmf.tstream;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -24,9 +24,9 @@ pub fn main() !void {
             },
         };
         defer parsed.deinit();
-        const d = try devc.mkDEVC(allocator, parsed);
+        const d = try tstream.mkTelemetryStream(allocator, parsed);
         defer d.deinit();
-        std.debug.print("DEVC: id={d}, name: {s}\n", .{ d.id, d.name });
+        std.debug.print("TelemetryStream: id={d}, name: {s}\n", .{ d.id, d.name });
         for (d.telems) |t| {
             if (t.values.len == 0) continue;
             std.debug.print("  Telemetry: stmp={d}, tsmp={d}, name: {s}\n", .{ t.stmp, t.tsmp, t.name });
@@ -66,7 +66,7 @@ pub fn main() !void {
                     },
                     .Scene => {
                         std.debug.print("    Scene:\n", .{});
-                        inline for (@typeInfo((devc.SceneScore)).Struct.fields) |field| {
+                        inline for (@typeInfo((tstream.SceneScore)).Struct.fields) |field| {
                             std.debug.print("      - {s}: {d}\n", .{ field.name, @field(v.Scene, field.name) });
                         }
                     },
@@ -144,14 +144,14 @@ fn printUnits(name: []const u8, units: [][]const u8) void {
     std.debug.print("\n", .{});
 }
 
-fn showGPS(v: u8, gps: devc.GPSReading) !void {
+fn showGPS(v: u8, gps: tstream.GPSReading) !void {
     var buf: [64]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
     const w = fbs.writer();
     try gps.time.time().strftime(w, "%Y-%m-%d %H:%M:%S:%f %Z");
 
     std.debug.print("    GPS{d}@{s} altref={s}\n", .{ v, fbs.getWritten(), gps.altRef });
-    inline for (@typeInfo((devc.GPSReading)).Struct.fields) |field| {
+    inline for (@typeInfo((tstream.GPSReading)).Struct.fields) |field| {
         if (comptime std.mem.eql(u8, "time", field.name)) continue;
         if (comptime std.mem.eql(u8, "altRef", field.name)) continue;
         std.debug.print("      - {s}: {d}\n", .{ field.name, @field(gps, field.name) });

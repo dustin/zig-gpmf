@@ -150,7 +150,7 @@ fn telemCmp(_: void, a: Telemetry, b: Telemetry) bool {
 }
 
 /// High level representation of device telemetry.
-pub const DEVC = struct {
+pub const TelemetryStream = struct {
     id: u32,
     name: []const u8,
     telems: []Telemetry,
@@ -167,7 +167,7 @@ pub const DEVC = struct {
 
 /// Build a DEVC from a parsed stream of GPMF data.
 /// The GPMF data should've been parsed by gpmf.parse()
-pub fn mkDEVC(oalloc: std.mem.Allocator, data: gpmf.Parsed) anyerror!DEVC {
+pub fn mkTelemetryStream(oalloc: std.mem.Allocator, data: gpmf.Parsed) anyerror!TelemetryStream {
     if (data.value != .nested) {
         return error.Invalid;
     }
@@ -183,7 +183,7 @@ pub fn mkDEVC(oalloc: std.mem.Allocator, data: gpmf.Parsed) anyerror!DEVC {
     const alloc = arena.allocator();
     const hm = std.AutoHashMap(gpmf.FourCC, u32).init(alloc);
 
-    var devc = DEVC{
+    var devc = TelemetryStream{
         .id = 0,
         .name = "",
         .telems = &.{},
@@ -370,7 +370,7 @@ fn parseGPS9(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) 
     return TVal{ .GPS9 = gpses };
 }
 
-fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList(Telemetry), data: []gpmf.Value) !void {
+fn recordTelemetry(alloc: std.mem.Allocator, devc: *TelemetryStream, telems: *std.ArrayList(Telemetry), data: []gpmf.Value) !void {
     var telem = Telemetry{ .stmp = 0, .tsmp = 0, .name = "", .values = &.{}, .units = &.{}, .siunits = &.{} };
     var vala = std.ArrayList(TVal).init(alloc);
     var state = ParserState{
