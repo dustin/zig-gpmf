@@ -150,9 +150,10 @@ fn showGPS(v: u8, gps: devc.GPSReading) !void {
     const w = fbs.writer();
     try gps.time.time().strftime(w, "%Y-%m-%d %H:%M:%S:%f %Z");
 
-    std.debug.print("    GPS{d}@{s}\n", .{ v, fbs.getWritten() });
+    std.debug.print("    GPS{d}@{s} altref={s}\n", .{ v, fbs.getWritten(), gps.altRef });
     inline for (@typeInfo((devc.GPSReading)).Struct.fields) |field| {
         if (comptime std.mem.eql(u8, "time", field.name)) continue;
+        if (comptime std.mem.eql(u8, "altRef", field.name)) continue;
         std.debug.print("      - {s}: {d}\n", .{ field.name, @field(gps, field.name) });
     }
 }

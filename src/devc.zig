@@ -33,6 +33,7 @@ pub const GPSReading = struct {
     lat: f64,
     lon: f64,
     alt: f64,
+    altRef: gpmf.FourCC,
     speed2d: f64,
     speed3d: f64,
     time: zeit.Instant,
@@ -215,6 +216,7 @@ const ParserState = struct {
     gpsu: zeit.Instant,
     gpsf: u32,
     gpsp: f64,
+    gpsa: gpmf.FourCC,
     scal: []gpmf.Value,
     tmpc: f64,
 };
@@ -302,6 +304,7 @@ fn parseGPS5(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) 
             .lat = try data[b].as(f64) / try state.scal[0].as(f64),
             .lon = try data[b + 1].as(f64) / try state.scal[1].as(f64),
             .alt = try data[b + 2].as(f64) / try state.scal[2].as(f64),
+            .altRef = state.gpsa,
             .speed2d = try data[b + 3].as(f64) / try state.scal[3].as(f64),
             .speed3d = try data[b + 4].as(f64) / try state.scal[4].as(f64),
             .time = state.gpsu,
@@ -355,6 +358,7 @@ fn parseGPS9(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) 
             .lat = try gd[0].as(f64) / lats,
             .lon = try gd[1].as(f64) / lons,
             .alt = try gd[2].as(f64) / alts,
+            .altRef = state.gpsa,
             .speed2d = try gd[3].as(f64) / s2ds,
             .speed3d = try gd[4].as(f64) / s3ds,
             .time = try baseTime.add(dur),
@@ -373,6 +377,7 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
         .gpsu = try zeit.instant(.{}),
         .gpsf = 0,
         .gpsp = 0,
+        .gpsa = constants.MSLV,
         .scal = &.{},
         .tmpc = 0,
     };
@@ -447,6 +452,10 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
                     try vala.append(try parseGravity(alloc, &state, nested.data));
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.WRGB)) {
                     try vala.append(try parseRGB(alloc, &state, nested.data));
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.GPSA)) {
+                    if (nested.data.len > 0 and nested.data[0] == .F) {
+                        state.gpsa = nested.data[0].F;
+                    }
                 } else {
                     const entry = try devc.ignored.getOrPut(nested.fourcc);
                     if (!entry.found_existing) {
@@ -614,6 +623,7 @@ test parseAG {
         .gpsu = try zeit.instant(.{}),
         .gpsf = 0,
         .gpsp = 0.0,
+        .gpsa = constants.MSLV,
         .scal = scaling[0..],
         .tmpc = 20.0, // example temperature value
     };
