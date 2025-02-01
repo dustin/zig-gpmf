@@ -101,6 +101,7 @@ pub const TVal = union(enum) {
     Scene: SceneScore,
     Luminance: f32,
     Hues: []Hue,
+    Uniformity: f32,
 };
 
 /// A named collection of telemetry data.
@@ -400,6 +401,8 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
                     try vala.append(try parseLuminance(alloc, &state, nested.data));
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.HUES)) {
                     try vala.append(try parseHues(alloc, &state, nested.data));
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.UNIF)) {
+                    try vala.append(try parseUniformity(alloc, &state, nested.data));
                 } else {
                     const entry = try devc.ignored.getOrPut(nested.fourcc);
                     if (!entry.found_existing) {
@@ -423,6 +426,15 @@ fn parseLuminance(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TV
     }
 
     return TVal{ .Luminance = ysum / @as(f32, @floatFromInt(data.len)) };
+}
+
+fn parseUniformity(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
+    var ysum: f32 = 0;
+    for (data) |d| {
+        ysum += try d.as(f32);
+    }
+
+    return TVal{ .Uniformity = ysum / @as(f32, @floatFromInt(data.len)) };
 }
 
 fn parseHues(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {

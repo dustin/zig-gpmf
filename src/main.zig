@@ -46,6 +46,9 @@ pub fn main() !void {
                             std.debug.print("    Hue: {d}, HSV: {d}, level: {d}\n", .{ h.hue, h.hsv(), h.weight });
                         }
                     },
+                    .Uniformity => {
+                        std.debug.print("    Uniformity: {d}\n", .{v.Uniformity});
+                    },
                     .Scene => {
                         std.debug.print("    Scene:\n", .{});
                         inline for (@typeInfo((devc.SceneScore)).Struct.fields) |field| {
