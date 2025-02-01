@@ -32,6 +32,8 @@ pub const TMPC: gpmf.FourCC = fourcc("TMPC");
 pub const GYRO: gpmf.FourCC = fourcc("GYRO");
 pub const UNIT: gpmf.FourCC = fourcc("UNIT");
 pub const SIUN: gpmf.FourCC = fourcc("SIUN");
+pub const YAVG: gpmf.FourCC = fourcc("YAVG");
+pub const HUES: gpmf.FourCC = fourcc("HUES");
 
 fn fourcc(s: []const u8) gpmf.FourCC {
     return [4]u8{ s[0], s[1], s[2], s[3] };

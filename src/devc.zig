@@ -78,6 +78,15 @@ pub const SceneScore = struct {
     Snow: f32,
 };
 
+pub const Hue = struct {
+    hue: u8,
+    weight: u8,
+
+    pub fn hsv(self: Hue) f32 {
+        return @as(f32, @floatFromInt(self.hue)) * 360.0 / 255.0;
+    }
+};
+
 /// A telemetry value.
 /// Some values contain multiple readings.
 pub const TVal = union(enum) {
@@ -90,6 +99,8 @@ pub const TVal = union(enum) {
     GPS9: []GPSReading,
     AudioLevel: AudioLevel,
     Scene: SceneScore,
+    Luminance: f32,
+    Hues: []Hue,
 };
 
 /// A named collection of telemetry data.
@@ -385,6 +396,10 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
                     try parseUnits(alloc, &state, nested.data, &telem.siunits);
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.STMP)) {
                     telem.stmp = try nested.data[0].as(u64);
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.YAVG)) {
+                    try vala.append(try parseLuminance(alloc, &state, nested.data));
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.HUES)) {
+                    try vala.append(try parseHues(alloc, &state, nested.data));
                 } else {
                     const entry = try devc.ignored.getOrPut(nested.fourcc);
                     if (!entry.found_existing) {
@@ -399,6 +414,34 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
 
     telem.values = try vala.toOwnedSlice();
     try telems.append(telem);
+}
+
+fn parseLuminance(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
+    var ysum: f32 = 0;
+    for (data) |d| {
+        ysum += try d.as(f32);
+    }
+
+    return TVal{ .Luminance = ysum / @as(f32, @floatFromInt(data.len)) };
+}
+
+fn parseHues(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
+    var hues = try alloc.alloc(Hue, data.len);
+    errdefer alloc.free(hues);
+    for (data, 0..) |d, o| {
+        if (d != .complex) {
+            return error.Invalid;
+        }
+        const cd = d.complex;
+        if (!std.mem.eql(u8, cd.fmt, "BB")) {
+            return error.Invalid;
+        }
+        hues[o] = .{
+            .hue = try cd.data[0].as(u8),
+            .weight = try cd.data[1].as(u8),
+        };
+    }
+    return TVal{ .Hues = hues };
 }
 
 fn fixUnits(alloc: std.mem.Allocator, data: []const u8) ![]const u8 {

@@ -38,6 +38,14 @@ pub fn main() !void {
                         const al = v.AudioLevel;
                         std.debug.print("    AudioLevel: rms={d}, peak={d}\n", .{ al.rms, al.peak });
                     },
+                    .Luminance => {
+                        std.debug.print("    Luminance: {d}\n", .{v.Luminance});
+                    },
+                    .Hues => {
+                        for (v.Hues) |h| {
+                            std.debug.print("    Hue: {d}, HSV: {d}, level: {d}\n", .{ h.hue, h.hsv(), h.weight });
+                        }
+                    },
                     .Scene => {
                         std.debug.print("    Scene:\n", .{});
                         inline for (@typeInfo((devc.SceneScore)).Struct.fields) |field| {
