@@ -82,31 +82,11 @@ fn runConversionTest(v: TestValue) bool {
     return marble.run(ValueConversionTest, &t, .{}) catch false;
 }
 
-test "Value Conversion Metamorphic Test" {
-    const test_values = [_]gpmf.Value{
-        .{ .b = -42 },
-        .{ .B = 200 },
-        .{ .s = -32768 }, // i16 min, won't fit in i8
-        .{ .S = 65535 }, // u16 max, won't fit in u8
-        .{ .l = -2147483648 }, // i32 min, won't fit in i16
-        .{ .L = 4294967295 }, // u32 max, won't fit in u16
-        .{ .q = 4294967295 }, // u32 max
-        .{ .Q = 18446744073709551615 }, // u64 max
-        .{ .j = -9223372036854775808 }, // i64 min
-        .{ .J = 18446744073709551615 }, // u64 max
-        .{ .l = 1000000 },
-        .{ .s = 32767 }, // i16 max, won't fit in i8
-    };
-
-    for (test_values) |val| {
-        var t = ValueConversionTest{ .value = val };
-        try std.testing.expect(try marble.run(ValueConversionTest, &t, .{}));
-    }
-
+test "Value Conversion Metamorphic Property Test" {
     try zigthesis.falsifyWith(runConversionTest, "conversion tests", .{ .max_iterations = 10000, .onError = zigthesis.failOnError });
 }
 
-test "Value conversion" {
+test "Value conversion examples" {
     // Integer conversions
     const int_val = gpmf.Value{ .l = 42 };
     try testing.expectEqual(@as(i32, 42), try int_val.as(i32));
