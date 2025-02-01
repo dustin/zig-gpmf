@@ -46,6 +46,9 @@ pub fn main() !void {
                             std.debug.print("    Hue: {d}, HSV: {d}, level: {d}\n", .{ h.hue, h.hsv(), h.weight });
                         }
                     },
+                    .WhiteBalance => {
+                        std.debug.print("    Temperature: {d}K\n", .{v.WhiteBalance});
+                    },
                     .Uniformity => {
                         std.debug.print("    Uniformity: {d}\n", .{v.Uniformity});
                     },

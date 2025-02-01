@@ -102,6 +102,7 @@ pub const TVal = union(enum) {
     Luminance: f32,
     Hues: []Hue,
     Uniformity: f32,
+    WhiteBalance: u16,
 };
 
 /// A named collection of telemetry data.
@@ -403,6 +404,8 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
                     try vala.append(try parseHues(alloc, &state, nested.data));
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.UNIF)) {
                     try vala.append(try parseUniformity(alloc, &state, nested.data));
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.WBAL)) {
+                    try vala.append(try parseWhiteBalance(alloc, &state, nested.data));
                 } else {
                     const entry = try devc.ignored.getOrPut(nested.fourcc);
                     if (!entry.found_existing) {
@@ -417,6 +420,14 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
 
     telem.values = try vala.toOwnedSlice();
     try telems.append(telem);
+}
+
+fn parseWhiteBalance(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
+    return TVal{ .WhiteBalance = try avgi(u16, data) };
+}
+
+fn avgi(comptime T: type, data: []gpmf.Value) !T {
+    return @intFromFloat(try avg(f32, data));
 }
 
 fn avg(comptime T: type, data: []gpmf.Value) !T {
