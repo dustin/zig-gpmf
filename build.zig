@@ -27,6 +27,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const zigthesis = b.dependency("zigthesis", .{
+        .target = target,
+        .optimize = optimize,
+    });
 
     gpmf.addImport("zeit", zeit.module("zeit"));
 
@@ -73,6 +77,7 @@ pub fn build(b: *std.Build) void {
     });
     unit_tests.root_module.addImport("zeit", zeit.module("zeit"));
     unit_tests.root_module.addImport("marble", marble.module("marble"));
+    unit_tests.root_module.addImport("zigthesis", zigthesis.module("zigthesis"));
     const run_unit_tests = b.addRunArtifact(unit_tests);
 
     const test_step = b.step("test", "Run unit tests");

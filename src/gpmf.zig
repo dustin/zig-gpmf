@@ -2,6 +2,7 @@ const std = @import("std");
 const testing = std.testing;
 const zeit = @import("zeit");
 const marble = @import("marble");
+const zigthesis = @import("zigthesis");
 
 pub const devc = @import("devc.zig");
 
@@ -78,14 +79,34 @@ pub const Value = union(enum) {
 
 pub const ConversionError = error{ InvalidIntValue, InvalidIntSrc, InvalidFloatSrc, InvalidStringSrc };
 
+fn safeCast(comptime T: type, v: anytype) ?T {
+    return switch (@typeInfo(T)) {
+        .Int => switch (@typeInfo(@TypeOf(v))) {
+            .Int => std.math.cast(T, v),
+            .Float => if (v < std.math.minInt(T) or v > std.math.maxInt(T)) {
+                return null;
+            } else {
+                return @intFromFloat(v);
+            },
+            else => return null,
+        },
+        .Float => switch (@typeInfo(@TypeOf(v))) {
+            .Int => @intFromFloat(v),
+            .Float => @floatCast(v),
+            else => return null,
+        },
+        else => return null,
+    };
+}
+
 fn extractValue(comptime T: type, v: Value) ConversionError!T {
     const extractors = struct {
         fn Int(vi: Value) ConversionError!T {
             return switch (vi) {
                 .b => std.math.cast(T, vi.b) orelse return error.InvalidIntValue,
                 .B => std.math.cast(T, vi.B) orelse return error.InvalidIntValue,
-                .d => @intFromFloat(vi.d),
-                .f => @intFromFloat(vi.f),
+                .d => safeCast(T, vi.d) orelse return error.InvalidIntValue,
+                .f => safeCast(T, vi.f) orelse return error.InvalidIntValue,
                 .j => std.math.cast(T, vi.j) orelse return error.InvalidIntValue,
                 .J => std.math.cast(T, vi.J) orelse return error.InvalidIntValue,
                 .l => std.math.cast(T, vi.l) orelse return error.InvalidIntValue,
@@ -141,6 +162,35 @@ fn extractValue(comptime T: type, v: Value) ConversionError!T {
     }
 }
 
+fn castUnion(comptime T: type, from: anytype) T {
+    const info = @typeInfo(@TypeOf(from)).Union;
+    inline for (info.fields) |field| {
+        if (std.meta.activeTag(from) == @field(std.meta.Tag(@TypeOf(from)), field.name)) {
+            return @unionInit(T, field.name, @field(from, field.name));
+        }
+    }
+    unreachable;
+}
+
+/// A test subset of Value containing only basic numeric variants.
+const TestValue = union(enum) {
+    b: i8,
+    B: u8,
+    j: i64,
+    J: u64,
+    l: i32,
+    L: u32,
+    q: u32,
+    Q: u64,
+    s: i16,
+    S: u16,
+
+    /// Convert a TestValue into a regular Value.
+    pub fn toValue(self: TestValue) Value {
+        return castUnion(Value, self);
+    }
+};
+
 const ValueConversionTest = struct {
     value: Value,
 
@@ -185,6 +235,11 @@ const ValueConversionTest = struct {
     }
 };
 
+fn runConversionTest(v: TestValue) bool {
+    var t = ValueConversionTest{ .value = v.toValue() };
+    return marble.run(ValueConversionTest, &t, .{}) catch false;
+}
+
 test "Value Conversion Metamorphic Test" {
     const test_values = [_]Value{
         .{ .b = -42 },
@@ -203,9 +258,10 @@ test "Value Conversion Metamorphic Test" {
 
     for (test_values) |val| {
         var t = ValueConversionTest{ .value = val };
-        // std.debug.print("testing {any}\n", .{val});
         try std.testing.expect(try marble.run(ValueConversionTest, &t, .{}));
     }
+
+    try zigthesis.falsifyWith(runConversionTest, "conversion tests", .{ .max_iterations = 10000, .onError = zigthesis.failOnError });
 }
 
 test "Value conversion" {
