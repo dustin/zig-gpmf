@@ -40,6 +40,8 @@ pub const SHUT: gpmf.FourCC = fourcc("SHUT");
 pub const ISOE: gpmf.FourCC = fourcc("ISOE");
 pub const CORI: gpmf.FourCC = fourcc("CORI");
 pub const IORI: gpmf.FourCC = fourcc("IORI");
+pub const MWET: gpmf.FourCC = fourcc("MWET");
+pub const WNDM: gpmf.FourCC = fourcc("WNDM");
 
 fn fourcc(s: []const u8) gpmf.FourCC {
     return [4]u8{ s[0], s[1], s[2], s[3] };

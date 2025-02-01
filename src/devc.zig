@@ -117,6 +117,8 @@ pub const TVal = union(enum) {
     ISO: u16,
     CameraOrientation: []Quaternion,
     ImageOrientation: []Quaternion,
+    MicWet: []u8,
+    WindProcessing: []u8,
 };
 
 /// A named collection of telemetry data.
@@ -428,6 +430,10 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
                     try vala.append(TVal{ .CameraOrientation = try parseQuaternion(alloc, &state, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.IORI)) {
                     try vala.append(TVal{ .CameraOrientation = try parseQuaternion(alloc, &state, nested.data) });
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.MWET)) {
+                    try vala.append(TVal{ .MicWet = try flatten(u8, alloc, nested.data) });
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.WNDM)) {
+                    try vala.append(TVal{ .WindProcessing = try flatten(u8, alloc, nested.data) });
                 } else {
                     const entry = try devc.ignored.getOrPut(nested.fourcc);
                     if (!entry.found_existing) {
@@ -442,6 +448,14 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
 
     telem.values = try vala.toOwnedSlice();
     try telems.append(telem);
+}
+
+fn flatten(comptime T: type, alloc: std.mem.Allocator, data: []gpmf.Value) ![]T {
+    var flat = try alloc.alloc(T, data.len);
+    for (data, 0..) |d, i| {
+        flat[i] = try d.as(T);
+    }
+    return flat;
 }
 
 fn parseQuaternion(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) ![]Quaternion {

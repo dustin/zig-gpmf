@@ -101,6 +101,12 @@ pub fn main() !void {
                             std.debug.print("    Image orientation quaternion: (w={d}, x={d}, y={d}, z={d})\n", .{ o.w, o.x, o.y, o.z });
                         }
                     },
+                    .MicWet => {
+                        std.debug.print("    Mic wetness: {d}\n", .{v.MicWet});
+                    },
+                    .WindProcessing => {
+                        std.debug.print("    Wind processing: {d}\n", .{v.WindProcessing});
+                    },
                 }
             }
         }
