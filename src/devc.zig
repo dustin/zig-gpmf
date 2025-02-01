@@ -468,3 +468,34 @@ fn parseAG(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) !T
 
     return .{ .temp = @floatCast(state.tmpc), .vals = vals };
 }
+
+test parseAG {
+    var allocator = std.testing.allocator;
+    var scaling: [1]gpmf.Value = .{.{ .f = 1.0 }};
+    var state = ParserState{
+        .gpsu = try zeit.instant(.{}),
+        .gpsf = 0,
+        .gpsp = 0.0,
+        .scal = scaling[0..],
+        .tmpc = 20.0, // example temperature value
+    };
+
+    // Prepare data for one XYZ triplet.
+    var values = try allocator.alloc(gpmf.Value, 6);
+    defer allocator.free(values);
+    for (values, 1..) |_, i| {
+        values[i - 1] = .{ .f = @floatFromInt(i) };
+    }
+
+    const result = try parseAG(allocator, &state, values[0..]);
+    defer allocator.free(result.vals);
+
+    try std.testing.expectEqual(result.temp, 20.0);
+    var e: f32 = 1;
+    for (result.vals) |v| {
+        inline for (@typeInfo((XYZ)).Struct.fields) |field| {
+            try std.testing.expectEqual(e, @field(v, field.name));
+            e = e + 1;
+        }
+    }
+}
