@@ -34,6 +34,9 @@ pub fn main() !void {
             printUnits("SI Units", t.siunits);
             for (t.values) |v| {
                 switch (v) {
+                    .Shutter => {
+                        std.debug.print("    Shutter: {d}\n", .{v.Shutter});
+                    },
                     .AudioLevel => {
                         const al = v.AudioLevel;
                         std.debug.print("    AudioLevel: rms={d}, peak={d}\n", .{ al.rms, al.peak });

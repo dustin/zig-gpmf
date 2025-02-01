@@ -103,6 +103,7 @@ pub const TVal = union(enum) {
     Hues: []Hue,
     Uniformity: f32,
     WhiteBalance: u16,
+    Shutter: f32,
 };
 
 /// A named collection of telemetry data.
@@ -399,13 +400,15 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.STMP)) {
                     telem.stmp = try nested.data[0].as(u64);
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.YAVG)) {
-                    try vala.append(try parseLuminance(alloc, &state, nested.data));
+                    try vala.append(TVal{ .Luminance = try avg(f32, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.HUES)) {
                     try vala.append(try parseHues(alloc, &state, nested.data));
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.UNIF)) {
-                    try vala.append(try parseUniformity(alloc, &state, nested.data));
+                    try vala.append(TVal{ .Uniformity = try avg(f32, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.WBAL)) {
-                    try vala.append(try parseWhiteBalance(alloc, &state, nested.data));
+                    try vala.append(TVal{ .WhiteBalance = try avg(u16, nested.data) });
+                } else if (gpmf.eqFourCC(nested.fourcc, constants.SHUT)) {
+                    try vala.append(TVal{ .Shutter = try avg(f32, nested.data) });
                 } else {
                     const entry = try devc.ignored.getOrPut(nested.fourcc);
                     if (!entry.found_existing) {
@@ -421,29 +424,19 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
     telem.values = try vala.toOwnedSlice();
     try telems.append(telem);
 }
-
-fn parseWhiteBalance(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
-    return TVal{ .WhiteBalance = try avgi(u16, data) };
-}
-
-fn avgi(comptime T: type, data: []gpmf.Value) !T {
-    return @intFromFloat(try avg(f32, data));
-}
-
 fn avg(comptime T: type, data: []gpmf.Value) !T {
+    if (data.len == 0) {
+        return 0;
+    }
     var sum: T = 0;
     for (data) |d| {
         sum += try d.as(T);
     }
-    return sum / @as(T, @floatFromInt(data.len));
-}
-
-fn parseLuminance(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
-    return TVal{ .Luminance = try avg(f32, data) };
-}
-
-fn parseUniformity(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
-    return TVal{ .Uniformity = try avg(f32, data) };
+    switch (@typeInfo(T)) {
+        .Int => return sum / @as(T, @intCast(data.len)),
+        .Float => return sum / @as(T, @floatFromInt(data.len)),
+        else => return error.Invalid,
+    }
 }
 
 fn parseHues(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
