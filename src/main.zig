@@ -101,6 +101,11 @@ pub fn main() !void {
                             std.debug.print("    Image orientation quaternion: (w={d}, x={d}, y={d}, z={d})\n", .{ o.w, o.x, o.y, o.z });
                         }
                     },
+                    .Gravity => {
+                        for (v.Gravity) |g| {
+                            std.debug.print("    x={d} y={d} z={d}\n", .{ g.x, g.y, g.z });
+                        }
+                    },
                     .MicWet => {
                         std.debug.print("    Mic wetness: {d}\n", .{v.MicWet});
                     },
