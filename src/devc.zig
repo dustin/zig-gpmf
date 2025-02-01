@@ -419,22 +419,20 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *DEVC, telems: *std.ArrayList
     try telems.append(telem);
 }
 
-fn parseLuminance(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
-    var ysum: f32 = 0;
+fn avg(comptime T: type, data: []gpmf.Value) !T {
+    var sum: T = 0;
     for (data) |d| {
-        ysum += try d.as(f32);
+        sum += try d.as(T);
     }
+    return sum / @as(T, @floatFromInt(data.len));
+}
 
-    return TVal{ .Luminance = ysum / @as(f32, @floatFromInt(data.len)) };
+fn parseLuminance(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
+    return TVal{ .Luminance = try avg(f32, data) };
 }
 
 fn parseUniformity(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
-    var ysum: f32 = 0;
-    for (data) |d| {
-        ysum += try d.as(f32);
-    }
-
-    return TVal{ .Uniformity = ysum / @as(f32, @floatFromInt(data.len)) };
+    return TVal{ .Uniformity = try avg(f32, data) };
 }
 
 fn parseHues(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
