@@ -160,8 +160,30 @@ pub const TelemetryStream = struct {
     pub fn deinit(self: @This()) void {
         const allocator = self.arena.child_allocator;
         self.arena.deinit();
-        // self.ignored.deinit();
         allocator.destroy(self.arena);
+    }
+
+    /// Get all GPS readings from all contained telemetry streams.
+    pub fn gpsReadings(self: @This(), alloc: std.mem.Allocator) !std.ArrayList(GPSReading) {
+        var r = std.ArrayList(GPSReading).init(alloc);
+        errdefer r.deinit();
+        for (self.telems) |t| {
+            var found = false;
+            for (t.values) |v| {
+                if (v == .GPS9) {
+                    found = true;
+                    try r.appendSlice(v.GPS9);
+                }
+            }
+            if (!found) {
+                for (t.values) |v| {
+                    if (v == .GPS5) {
+                        try r.appendSlice(v.GPS5);
+                    }
+                }
+            }
+        }
+        return r;
     }
 };
 
