@@ -99,7 +99,7 @@ pub fn build(b: *std.Build) void {
     {
         const docs_step = b.step("docs", "Build the Telemetry Stream docs");
         const docs_obj = b.addObject(.{
-            .name = "GoPro Telemetry Streams",
+            .name = "gpmf",
             .root_source_file = b.path("src/tstream.zig"),
             .target = target,
             .optimize = optimize,

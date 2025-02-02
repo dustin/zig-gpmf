@@ -164,6 +164,7 @@ pub const TelemetryStream = struct {
     }
 
     /// Get all GPS readings from all contained telemetry streams.
+    /// This attempts to return GPS9 (newer) data if available, else will return GPS5 data (if available).
     pub fn gpsReadings(self: @This(), alloc: std.mem.Allocator) !std.ArrayList(GPSReading) {
         var r = std.ArrayList(GPSReading).init(alloc);
         errdefer r.deinit();
