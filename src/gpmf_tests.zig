@@ -5,6 +5,12 @@ const zigthesis = @import("zigthesis");
 const gpmf = @import("gpmf.zig");
 
 fn castUnion(comptime T: type, from: anytype) T {
+    if (@typeInfo(T) != .Union) {
+        @compileError("destination type must be a union for castUnion");
+    }
+    if (@typeInfo(@TypeOf(from)) != .Union) {
+        @compileError("source type must be a union for castUnion");
+    }
     const info = @typeInfo(@TypeOf(from)).Union;
     inline for (info.fields) |field| {
         if (std.meta.activeTag(from) == @field(std.meta.Tag(@TypeOf(from)), field.name)) {
