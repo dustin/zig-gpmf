@@ -66,7 +66,7 @@ pub fn main() !void {
                     },
                     .Scene => {
                         std.debug.print("    Scene:\n", .{});
-                        inline for (@typeInfo((tstream.SceneScore)).Struct.fields) |field| {
+                        inline for (@typeInfo((tstream.SceneScore)).@"struct".fields) |field| {
                             std.debug.print("      - {s}: {d}\n", .{ field.name, @field(v.Scene, field.name) });
                         }
                     },
@@ -151,7 +151,7 @@ fn showGPS(v: u8, gps: tstream.GPSReading) !void {
     try gps.time.time().strftime(w, "%Y-%m-%d %H:%M:%S:%f %Z");
 
     std.debug.print("    GPS{d}@{s} altref={s}\n", .{ v, fbs.getWritten(), gps.altRef });
-    inline for (@typeInfo((tstream.GPSReading)).Struct.fields) |field| {
+    inline for (@typeInfo((tstream.GPSReading)).@"struct".fields) |field| {
         if (comptime std.mem.eql(u8, "time", field.name)) continue;
         if (comptime std.mem.eql(u8, "altRef", field.name)) continue;
         std.debug.print("      - {s}: {d}\n", .{ field.name, @field(gps, field.name) });

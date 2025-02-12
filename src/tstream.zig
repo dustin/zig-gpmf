@@ -546,8 +546,8 @@ fn avg(comptime T: type, data: []gpmf.Value) !T {
         sum += try d.as(T);
     }
     switch (@typeInfo(T)) {
-        .Int => return sum / @as(T, @intCast(data.len)),
-        .Float => return sum / @as(T, @floatFromInt(data.len)),
+        .int => return sum / @as(T, @intCast(data.len)),
+        .float => return sum / @as(T, @floatFromInt(data.len)),
         else => return error.Invalid,
     }
 }
@@ -664,7 +664,7 @@ test parseAG {
     try std.testing.expectEqual(result.temp, 20.0);
     var e: f32 = 1;
     for (result.vals) |v| {
-        inline for (@typeInfo((XYZ)).Struct.fields) |field| {
+        inline for (@typeInfo((XYZ)).@"struct".fields) |field| {
             try std.testing.expectEqual(e, @field(v, field.name));
             e = e + 1;
         }

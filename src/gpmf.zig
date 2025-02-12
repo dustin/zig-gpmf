@@ -80,18 +80,18 @@ pub const ConversionError = error{ InvalidIntValue, InvalidIntSrc, InvalidFloatS
 
 fn safeCast(comptime T: type, v: anytype) ?T {
     return switch (@typeInfo(T)) {
-        .Int => switch (@typeInfo(@TypeOf(v))) {
-            .Int => std.math.cast(T, v),
-            .Float => if (v < std.math.minInt(T) or v > std.math.maxInt(T)) {
+        .int => switch (@typeInfo(@TypeOf(v))) {
+            .int => std.math.cast(T, v),
+            .float => if (v < std.math.minInt(T) or v > std.math.maxInt(T)) {
                 return null;
             } else {
                 return @intFromFloat(v);
             },
             else => return null,
         },
-        .Float => switch (@typeInfo(@TypeOf(v))) {
-            .Int => @intFromFloat(v),
-            .Float => @floatCast(v),
+        .float => switch (@typeInfo(@TypeOf(v))) {
+            .int => @intFromFloat(v),
+            .float => @floatCast(v),
             else => return null,
         },
         else => return null,
@@ -100,7 +100,7 @@ fn safeCast(comptime T: type, v: anytype) ?T {
 
 fn extractValue(comptime T: type, v: Value) ConversionError!T {
     const extractors = struct {
-        fn Int(vi: Value) ConversionError!T {
+        fn int(vi: Value) ConversionError!T {
             return switch (vi) {
                 .b => std.math.cast(T, vi.b) orelse return error.InvalidIntValue,
                 .B => std.math.cast(T, vi.B) orelse return error.InvalidIntValue,
@@ -117,7 +117,7 @@ fn extractValue(comptime T: type, v: Value) ConversionError!T {
                 else => return error.InvalidIntSrc,
             };
         }
-        fn Float(vf: Value) ConversionError!T {
+        fn float(vf: Value) ConversionError!T {
             return switch (vf) {
                 .b => @floatFromInt(vf.b),
                 .B => @floatFromInt(vf.B),
@@ -134,7 +134,7 @@ fn extractValue(comptime T: type, v: Value) ConversionError!T {
                 else => return error.InvalidFloatSrc,
             };
         }
-        fn Pointer(pf: Value) ConversionError!T {
+        fn pointer(pf: Value) ConversionError!T {
             return switch (pf) {
                 .c => pf.c,
                 .G => &pf.G,
@@ -146,14 +146,14 @@ fn extractValue(comptime T: type, v: Value) ConversionError!T {
         }
     };
     switch (@typeInfo(T)) {
-        .Int => {
-            return extractors.Int(v);
+        .int => {
+            return extractors.int(v);
         },
-        .Float => {
-            return extractors.Float(v);
+        .float => {
+            return extractors.float(v);
         },
-        .Pointer => {
-            return extractors.Pointer(v);
+        .pointer => {
+            return extractors.pointer(v);
         },
         else => {
             @compileError("Unable to extract '" ++ @typeName(T) ++ "'");
