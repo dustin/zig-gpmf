@@ -1,5 +1,6 @@
 const std = @import("std");
 const testing = std.testing;
+const marble = @import("marble");
 const zigthesis = @import("zigthesis");
 const gpmf = @import("gpmf.zig");
 
@@ -37,6 +38,59 @@ const TestValue = union(enum) {
         return castUnion(gpmf.Value, self);
     }
 };
+
+const ValueConversionTest = struct {
+    value: gpmf.Value,
+
+    pub fn transformTob(self: *@This()) void {
+        self.value = .{ .b = self.value.as(i8) catch return };
+    }
+
+    pub fn transformToB(self: *@This()) void {
+        self.value = .{ .B = self.value.as(u8) catch return };
+    }
+
+    pub fn transformTos(self: *@This()) void {
+        self.value = .{ .s = self.value.as(i16) catch return };
+    }
+
+    pub fn transformToS(self: *@This()) void {
+        self.value = .{ .S = self.value.as(u16) catch return };
+    }
+
+    pub fn transformTol(self: *@This()) void {
+        self.value = .{ .l = self.value.as(i32) catch return };
+    }
+
+    pub fn transformToL(self: *@This()) void {
+        self.value = .{ .L = self.value.as(u32) catch return };
+    }
+
+    pub fn transformToQ(self: *@This()) void {
+        self.value = .{ .q = self.value.as(u32) catch return };
+    }
+
+    pub fn transformToJ(self: *@This()) void {
+        self.value = .{ .J = self.value.as(u64) catch return };
+    }
+
+    pub fn check(_: *@This(), orig: gpmf.Value, transformed: gpmf.Value) bool {
+        return (orig.as(i65) catch return false) == (transformed.as(i65) catch return false);
+    }
+
+    pub fn execute(self: *@This()) gpmf.Value {
+        return self.value;
+    }
+};
+
+fn runConversionTest(v: TestValue) bool {
+    var t = ValueConversionTest{ .value = v.toValue() };
+    return marble.run(ValueConversionTest, &t, .{}) catch false;
+}
+
+test "Value Conversion Metamorphic Property Test" {
+    try zigthesis.falsifyWith(runConversionTest, "conversion tests", .{ .max_iterations = 10000, .onError = zigthesis.failOnError });
+}
 
 test "Value conversion examples" {
     // Integer conversions

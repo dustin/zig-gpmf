@@ -23,6 +23,10 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const marble = b.dependency("marble", .{
+        .target = target,
+        .optimize = optimize,
+    });
     const zigthesis = b.dependency("zigthesis", .{
         .target = target,
         .optimize = optimize,
@@ -85,6 +89,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     unit_tests.root_module.addImport("zeit", zeit.module("zeit"));
+    unit_tests.root_module.addImport("marble", marble.module("marble"));
     unit_tests.root_module.addImport("zigthesis", zigthesis.module("zigthesis"));
     const run_unit_tests = b.addRunArtifact(unit_tests);
 
