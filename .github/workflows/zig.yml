@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ fourteen ]
+    branches: [ main ]
   pull_request:
-    branches: [ fourteen ]
+    branches: [ main ]
 
 jobs:
   build:
@@ -39,7 +39,7 @@ jobs:
       - name: Install Zig
         uses: mlugg/setup-zig@v1
         with:
-          version: "0.14.0-dev.3187+d4c85079c"
+          version: "master"
 
       - name: Build project
         run: zig build ${{ matrix.build_flags }} -Doptimize=ReleaseSmall
