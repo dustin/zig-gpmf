@@ -8,4 +8,7 @@ data (as well as some high level access to come common/tedious
 parts).  [GoPro's own project][gpmfdocs] documents the format and
 features therein.
 
+You can read the [API documentation][apidoc] to make awesome things with this.
+
 [gpmfdocs]: https://github.com/gopro/gpmf-parser
+[apidoc]: https://dustin.github.io/zig-gpmf/
