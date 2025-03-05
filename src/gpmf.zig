@@ -102,20 +102,20 @@ fn extractValue(comptime T: type, v: Value) ConversionError!T {
     const extractors = struct {
         fn int(vi: Value) ConversionError!T {
             return switch (vi) {
-                .b => std.math.cast(T, vi.b) orelse return error.InvalidIntValue,
-                .B => std.math.cast(T, vi.B) orelse return error.InvalidIntValue,
-                .d => safeCast(T, vi.d) orelse return error.InvalidIntValue,
-                .f => safeCast(T, vi.f) orelse return error.InvalidIntValue,
-                .j => std.math.cast(T, vi.j) orelse return error.InvalidIntValue,
-                .J => std.math.cast(T, vi.J) orelse return error.InvalidIntValue,
-                .l => std.math.cast(T, vi.l) orelse return error.InvalidIntValue,
-                .L => std.math.cast(T, vi.L) orelse return error.InvalidIntValue,
-                .q => std.math.cast(T, vi.q) orelse return error.InvalidIntValue,
-                .Q => std.math.cast(T, vi.Q) orelse return error.InvalidIntValue,
-                .s => std.math.cast(T, vi.s) orelse return error.InvalidIntValue,
-                .S => std.math.cast(T, vi.S) orelse return error.InvalidIntValue,
+                .b => std.math.cast(T, vi.b),
+                .B => std.math.cast(T, vi.B),
+                .d => safeCast(T, vi.d),
+                .f => safeCast(T, vi.f),
+                .j => std.math.cast(T, vi.j),
+                .J => std.math.cast(T, vi.J),
+                .l => std.math.cast(T, vi.l),
+                .L => std.math.cast(T, vi.L),
+                .q => std.math.cast(T, vi.q),
+                .Q => std.math.cast(T, vi.Q),
+                .s => std.math.cast(T, vi.s),
+                .S => std.math.cast(T, vi.S),
                 else => return error.InvalidIntSrc,
-            };
+            } orelse error.InvalidIntValue;
         }
         fn float(vf: Value) ConversionError!T {
             return switch (vf) {
