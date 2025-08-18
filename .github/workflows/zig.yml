@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        zig_version: ["0.14.1", "master"]
+        zig_version: ["0.14.1"]
         os: ["ubuntu-latest", "macos-latest", "windows-latest", "ubuntu-24.04-arm"]
 
     steps:
