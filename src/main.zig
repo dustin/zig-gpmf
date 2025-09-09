@@ -14,9 +14,11 @@ pub fn main() !void {
 
     var infile = try std.fs.openFileAbsolute(args[1], std.fs.File.OpenFlags{});
     defer infile.close();
+    var buf: [8192]u8 = undefined;
+    var ir = infile.reader(&buf);
 
     while (true) {
-        const parsed = gpmf.parse(allocator, infile.reader().any()) catch |err| switch (err) {
+        const parsed = gpmf.parse(allocator, &ir.interface) catch |err| switch (err) {
             error.EndOfStream => return void{},
             else => {
                 std.debug.print("Error parsing: {any}", .{err});
@@ -42,7 +44,7 @@ pub fn main() !void {
                     },
                     .AudioLevel => {
                         const al = v.AudioLevel;
-                        std.debug.print("    AudioLevel: rms={d}, peak={d}\n", .{ al.rms, al.peak });
+                        std.debug.print("    AudioLevel: rms={f}, peak={f}\n", .{ gpmf.formatSlice("{d}", al.rms), gpmf.formatSlice("{d}", al.peak) });
                     },
                     .Luminance => {
                         std.debug.print("    Luminance: {d}\n", .{v.Luminance});
@@ -113,15 +115,15 @@ pub fn main() !void {
                         }
                     },
                     .MicWet => {
-                        std.debug.print("    Mic wetness: {d}\n", .{v.MicWet});
+                        std.debug.print("    Mic wetness: {any}\n", .{v.MicWet});
                     },
                     .WindProcessing => {
-                        std.debug.print("    Wind processing: {d}\n", .{v.WindProcessing});
+                        std.debug.print("    Wind processing: {any}\n", .{v.WindProcessing});
                     },
                 }
             }
         }
-        try std.io.getStdOut().writer().writeByte('\n');
+        std.debug.print("\n", .{});
         var iterator = d.ignored.iterator();
         std.debug.print("Ignored:\n", .{});
         while (iterator.next()) |entry| {
@@ -144,13 +146,13 @@ fn printUnits(name: []const u8, units: [][]const u8) void {
     std.debug.print("\n", .{});
 }
 
+//     pub fn bufPrint(self: Time, buf: []u8, fmt: Format) ![]u8 {
+
 fn showGPS(v: u8, gps: tstream.GPSReading) !void {
     var buf: [64]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&buf);
-    const w = fbs.writer();
-    try gps.time.time().strftime(w, "%Y-%m-%d %H:%M:%S:%f %Z");
+    const formatted = try gps.time.time().bufPrint(&buf, .rfc3339); // "%Y-%m-%d %H:%M:%S:%f %Z");
 
-    std.debug.print("    GPS{d}@{s} altref={s}\n", .{ v, fbs.getWritten(), gps.altRef });
+    std.debug.print("    GPS{d}@{s} altref={s}\n", .{ v, formatted, gps.altRef });
     inline for (@typeInfo((tstream.GPSReading)).@"struct".fields) |field| {
         if (comptime std.mem.eql(u8, "time", field.name)) continue;
         if (comptime std.mem.eql(u8, "altRef", field.name)) continue;

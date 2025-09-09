@@ -2,7 +2,7 @@ const std = @import("std");
 const gpmf = @import("gpmf");
 const tstream = gpmf.tstream;
 
-fn toKML(alloc: std.mem.Allocator, r: std.io.AnyReader, w: std.io.AnyWriter) !void {
+fn toKML(alloc: std.mem.Allocator, r: *std.Io.Reader, w: *std.Io.Writer) !void {
     var readings = std.MultiArrayList(tstream.GPSReading){};
     defer readings.deinit(alloc);
 
@@ -20,7 +20,7 @@ fn toKML(alloc: std.mem.Allocator, r: std.io.AnyReader, w: std.io.AnyWriter) !vo
         defer ts.deinit();
 
         var gpses = try ts.gpsReadings(alloc);
-        defer gpses.deinit();
+        defer gpses.deinit(alloc);
         try readings.ensureUnusedCapacity(alloc, gpses.items.len);
         for (gpses.items) |g| {
             readings.appendAssumeCapacity(g);
@@ -84,7 +84,7 @@ fn toKML(alloc: std.mem.Allocator, r: std.io.AnyReader, w: std.io.AnyWriter) !vo
     }
 }
 
-fn immediate(w: std.io.AnyWriter, name: []const u8, attrs: []const Attribute, comptime fmt: []const u8, args: anytype) !void {
+fn immediate(w: *std.Io.Writer, name: []const u8, attrs: []const Attribute, comptime fmt: []const u8, args: anytype) !void {
     const tag = Tag{ .name = name, .attrs = attrs };
     try tag.start(w);
     try w.print(fmt, args);
@@ -100,7 +100,7 @@ const Tag: type = struct {
     name: []const u8,
     attrs: []const Attribute = &.{},
 
-    pub fn start(self: @This(), w: std.io.AnyWriter) std.io.AnyWriter.Error!void {
+    pub fn start(self: @This(), w: *std.Io.Writer) std.Io.Writer.Error!void {
         try w.print("<{s}", .{self.name});
         for (self.attrs) |attr| {
             try w.print(" {s}=\"{s}\"", .{ attr.k, attr.v });
@@ -108,7 +108,7 @@ const Tag: type = struct {
         try w.print(">", .{});
     }
 
-    pub fn end(self: @This(), w: std.io.AnyWriter) void {
+    pub fn end(self: @This(), w: *std.Io.Writer) void {
         w.print("</{s}>", .{self.name}) catch return;
     }
 };
@@ -125,6 +125,11 @@ pub fn main() !void {
 
     var infile = try std.fs.openFileAbsolute(args[1], std.fs.File.OpenFlags{});
     defer infile.close();
+    var buf: [8192]u8 = undefined;
+    var reader = infile.reader(&buf);
 
-    return toKML(allocator, infile.reader().any(), std.io.getStdOut().writer().any());
+    var wbuf: [8192]u8 = undefined;
+    var stdout = std.fs.File.stdout().writer(&wbuf);
+
+    return toKML(allocator, &reader.interface, &stdout.interface);
 }

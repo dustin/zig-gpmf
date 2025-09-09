@@ -166,20 +166,20 @@ pub const TelemetryStream = struct {
     /// Get all GPS readings from all contained telemetry streams.
     /// This attempts to return GPS9 (newer) data if available, else will return GPS5 data (if available).
     pub fn gpsReadings(self: @This(), alloc: std.mem.Allocator) !std.ArrayList(GPSReading) {
-        var r = std.ArrayList(GPSReading).init(alloc);
-        errdefer r.deinit();
+        var r = try std.ArrayList(GPSReading).initCapacity(alloc, 8192);
+        errdefer r.deinit(alloc);
         for (self.telems) |t| {
             var found = false;
             for (t.values) |v| {
                 if (v == .GPS9) {
                     found = true;
-                    try r.appendSlice(v.GPS9);
+                    try r.appendSlice(alloc, v.GPS9);
                 }
             }
             if (!found) {
                 for (t.values) |v| {
                     if (v == .GPS5) {
-                        try r.appendSlice(v.GPS5);
+                        try r.appendSlice(alloc, v.GPS5);
                     }
                 }
             }
@@ -213,7 +213,7 @@ pub fn mkTelemetryStream(oalloc: std.mem.Allocator, data: gpmf.Parsed) anyerror!
         .arena = arena,
         .ignored = hm,
     };
-    var telems = std.ArrayList(Telemetry).init(alloc);
+    var telems = try std.ArrayList(Telemetry).initCapacity(alloc, 10);
     for (data.value.nested.data) |v| {
         switch (v) {
             .nested => {
@@ -229,7 +229,7 @@ pub fn mkTelemetryStream(oalloc: std.mem.Allocator, data: gpmf.Parsed) anyerror!
             else => {},
         }
     }
-    devc.telems = try telems.toOwnedSlice();
+    devc.telems = try telems.toOwnedSlice(alloc);
     std.mem.sort(Telemetry, devc.telems, {}, telemCmp);
 
     return devc;
@@ -266,7 +266,7 @@ fn parseScene(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
             continue;
         }
         if (!std.mem.eql(u8, nd.complex.fmt, want)) {
-            std.debug.print("   incorrect format: {u} ({any}) want {u} ({any})\n", .{ nd.complex.fmt, nd.complex.fmt, want, want });
+            std.debug.print("   incorrect format: {s} ({any}) want {s} ({any})\n", .{ nd.complex.fmt, nd.complex.fmt, want, want });
             continue;
         }
         const fcc = nd.complex.data[0].F;
@@ -284,14 +284,14 @@ fn parseScene(_: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
 }
 
 fn parseFaces(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !?TVal {
-    var faces = std.ArrayList(Face).init(alloc);
+    var faces = try std.ArrayList(Face).initCapacity(alloc, 16);
     for (data) |nd| {
         if (nd != .complex) {
             std.debug.print("   not complex: {any}\n", .{nd});
             continue;
         }
         if (std.mem.eql(u8, nd.complex.fmt, "Lffffff")) {
-            try faces.append(Face{
+            try faces.append(alloc, Face{
                 .id = try nd.complex.data[0].as(i32),
                 .x = try nd.complex.data[1].as(f32),
                 .y = try nd.complex.data[2].as(f32),
@@ -300,7 +300,7 @@ fn parseFaces(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !?T
                 .smile = try nd.complex.data[6].as(f32),
             });
         } else if (std.mem.eql(u8, nd.complex.fmt, "Lffff")) {
-            try faces.append(Face{
+            try faces.append(alloc, Face{
                 .id = try nd.complex.data[0].as(i32),
                 .x = try nd.complex.data[1].as(f32),
                 .y = try nd.complex.data[2].as(f32),
@@ -316,7 +316,7 @@ fn parseFaces(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !?T
     if (faces.items.len == 0) {
         return null;
     }
-    return TVal{ .Faces = try faces.toOwnedSlice() };
+    return TVal{ .Faces = try faces.toOwnedSlice(alloc) };
 }
 
 fn parseGPS5(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) !TVal {
@@ -363,7 +363,7 @@ fn parseGPS9(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) 
             continue;
         }
         if (!std.mem.eql(u8, gv.complex.fmt, want)) {
-            std.debug.print("   incorrect format: {u} ({any}) want {u} ({any})\n", .{ gv.complex.fmt, gv.complex.fmt, want, want });
+            std.debug.print("   incorrect format: {s} ({any}) want {s} ({any})\n", .{ gv.complex.fmt, gv.complex.fmt, want, want });
             continue;
         }
         const gd = gv.complex.data;
@@ -395,7 +395,7 @@ fn parseGPS9(alloc: std.mem.Allocator, state: *ParserState, data: []gpmf.Value) 
 
 fn recordTelemetry(alloc: std.mem.Allocator, devc: *TelemetryStream, telems: *std.ArrayList(Telemetry), data: []gpmf.Value) !void {
     var telem = Telemetry{ .stmp = 0, .tsmp = 0, .name = "", .values = &.{}, .units = &.{}, .siunits = &.{} };
-    var vala = std.ArrayList(TVal).init(alloc);
+    var vala = try std.ArrayList(TVal).initCapacity(alloc, 128);
     var state = ParserState{
         .gpsu = try zeit.instant(.{}),
         .gpsf = 0,
@@ -414,12 +414,12 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *TelemetryStream, telems: *st
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.TSMP)) {
                     telem.tsmp = try nested.data[0].as(u64);
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.AALP)) {
-                    try vala.append(try parseAudioLevel(alloc, &state, nested.data));
+                    try vala.append(alloc, try parseAudioLevel(alloc, &state, nested.data));
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.SCEN)) {
-                    try vala.append(try parseScene(alloc, &state, nested.data));
+                    try vala.append(alloc, try parseScene(alloc, &state, nested.data));
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.FACE)) {
                     if (try parseFaces(alloc, &state, nested.data)) |f| {
-                        try vala.append(f);
+                        try vala.append(alloc, f);
                     }
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.SCAL)) {
                     state.scal = nested.data;
@@ -434,17 +434,17 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *TelemetryStream, telems: *st
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.GPSP)) {
                     state.gpsp = try nested.data[0].as(f64);
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.GPS5)) {
-                    try vala.append(try parseGPS5(alloc, &state, nested.data));
+                    try vala.append(alloc, try parseGPS5(alloc, &state, nested.data));
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.GPS9)) {
                     if (try parseGPS9(alloc, &state, nested.data)) |gps| {
-                        try vala.append(gps);
+                        try vala.append(alloc, gps);
                     }
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.GPS9)) {
                     std.debug.print(" GPS9: scal={any}\n    {any}\n", .{ state.scal, nested.data });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.GYRO)) {
-                    try vala.append(TVal{ .Gyro = try parseAG(alloc, &state, nested.data) });
+                    try vala.append(alloc, TVal{ .Gyro = try parseAG(alloc, &state, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.ACCL)) {
-                    try vala.append(TVal{ .Accl = try parseAG(alloc, &state, nested.data) });
+                    try vala.append(alloc, TVal{ .Accl = try parseAG(alloc, &state, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.UNIT)) {
                     try parseUnits(alloc, &state, nested.data, &telem.units);
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.SIUN)) {
@@ -452,29 +452,29 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *TelemetryStream, telems: *st
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.STMP)) {
                     telem.stmp = try nested.data[0].as(u64);
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.YAVG)) {
-                    try vala.append(TVal{ .Luminance = try avg(f32, nested.data) });
+                    try vala.append(alloc, TVal{ .Luminance = try avg(f32, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.HUES)) {
-                    try vala.append(try parseHues(alloc, &state, nested.data));
+                    try vala.append(alloc, try parseHues(alloc, &state, nested.data));
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.UNIF)) {
-                    try vala.append(TVal{ .Uniformity = try avg(f32, nested.data) });
+                    try vala.append(alloc, TVal{ .Uniformity = try avg(f32, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.WBAL)) {
-                    try vala.append(TVal{ .WhiteBalance = try avg(u16, nested.data) });
+                    try vala.append(alloc, TVal{ .WhiteBalance = try avg(u16, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.SHUT)) {
-                    try vala.append(TVal{ .Shutter = try avg(f32, nested.data) });
+                    try vala.append(alloc, TVal{ .Shutter = try avg(f32, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.ISOE)) {
-                    try vala.append(TVal{ .ISO = try avg(u16, nested.data) });
+                    try vala.append(alloc, TVal{ .ISO = try avg(u16, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.CORI)) {
-                    try vala.append(TVal{ .CameraOrientation = try parseQuaternion(alloc, &state, nested.data) });
+                    try vala.append(alloc, TVal{ .CameraOrientation = try parseQuaternion(alloc, &state, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.IORI)) {
-                    try vala.append(TVal{ .CameraOrientation = try parseQuaternion(alloc, &state, nested.data) });
+                    try vala.append(alloc, TVal{ .CameraOrientation = try parseQuaternion(alloc, &state, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.MWET)) {
-                    try vala.append(TVal{ .MicWet = try flatten(u8, alloc, nested.data) });
+                    try vala.append(alloc, TVal{ .MicWet = try flatten(u8, alloc, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.WNDM)) {
-                    try vala.append(TVal{ .WindProcessing = try flatten(u8, alloc, nested.data) });
+                    try vala.append(alloc, TVal{ .WindProcessing = try flatten(u8, alloc, nested.data) });
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.GRAV)) {
-                    try vala.append(try parseGravity(alloc, &state, nested.data));
+                    try vala.append(alloc, try parseGravity(alloc, &state, nested.data));
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.WRGB)) {
-                    try vala.append(try parseRGB(alloc, &state, nested.data));
+                    try vala.append(alloc, try parseRGB(alloc, &state, nested.data));
                 } else if (gpmf.eqFourCC(nested.fourcc, constants.GPSA)) {
                     if (nested.data.len > 0 and nested.data[0] == .F) {
                         state.gpsa = nested.data[0].F;
@@ -491,8 +491,8 @@ fn recordTelemetry(alloc: std.mem.Allocator, devc: *TelemetryStream, telems: *st
         }
     }
 
-    telem.values = try vala.toOwnedSlice();
-    try telems.append(telem);
+    telem.values = try vala.toOwnedSlice(alloc);
+    try telems.append(alloc, telem);
 }
 
 fn parseRGB(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVal {
@@ -572,19 +572,19 @@ fn parseHues(alloc: std.mem.Allocator, _: *ParserState, data: []gpmf.Value) !TVa
 }
 
 fn fixUnits(alloc: std.mem.Allocator, data: []const u8) ![]const u8 {
-    var buf = std.ArrayList(u8).init(alloc);
+    var buf = try std.ArrayList(u8).initCapacity(alloc, 16);
     for (data) |c| {
         if (c == 0) {
             break;
         }
         if (c == 0xB0) { // This is an old-style degree symbol we'll convert to utf8.
-            try buf.append(0xc2);
-            try buf.append(0xb2);
+            try buf.append(alloc, 0xc2);
+            try buf.append(alloc, 0xb2);
             continue;
         }
-        try buf.append(c);
+        try buf.append(alloc, c);
     }
-    return buf.toOwnedSlice();
+    return buf.toOwnedSlice(alloc);
 }
 
 test fixUnits {

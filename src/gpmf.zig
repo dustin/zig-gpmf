@@ -78,14 +78,37 @@ pub const Value = union(enum) {
 
 pub const ConversionError = error{ InvalidIntValue, InvalidIntSrc, InvalidFloatSrc, InvalidStringSrc };
 
+pub fn FormatSlice(comptime fmt: []const u8, comptime T: type) type {
+    return struct {
+        things: T = undefined,
+
+        pub fn format(self: @This(), w: *std.Io.Writer) std.Io.Writer.Error!void {
+            try w.writeAll("[");
+            for (self.things, 0..) |s, i| {
+                if (i > 0) try w.writeAll(", ");
+                try w.print(fmt, .{s});
+            }
+            try w.writeAll("]");
+        }
+    };
+}
+
+pub fn formatSlice(comptime fmt: []const u8, things: anytype) FormatSlice(fmt, @TypeOf(things)) {
+    return FormatSlice(fmt, @TypeOf(things)){ .things = things };
+}
+
 fn safeCast(comptime T: type, v: anytype) ?T {
     return switch (@typeInfo(T)) {
         .int => switch (@typeInfo(@TypeOf(v))) {
             .int => std.math.cast(T, v),
-            .float => if (v < std.math.minInt(T) or v > std.math.maxInt(T)) {
-                return null;
-            } else {
-                return @intFromFloat(v);
+            .float => {
+                // T : u32
+                // v : f32
+                if (v < @as(@TypeOf(v), @floatFromInt(std.math.minInt(T))) or v > @as(@TypeOf(v), @floatFromInt(std.math.maxInt(T)))) {
+                    return null;
+                } else {
+                    return @intFromFloat(v);
+                }
             },
             else => return null,
         },
@@ -162,7 +185,7 @@ fn extractValue(comptime T: type, v: Value) ConversionError!T {
 }
 
 const Parser = struct {
-    input: std.io.AnyReader,
+    input: *std.Io.Reader,
     alloc: std.mem.Allocator,
     ctype: []const u8,
 };
@@ -180,7 +203,7 @@ pub const Parsed = struct {
 };
 
 /// Parse a stream of GPMF data into a low-level stream of parsed values.
-pub fn parse(allocator: std.mem.Allocator, input: std.io.AnyReader) anyerror!Parsed {
+pub fn parse(allocator: std.mem.Allocator, input: *std.Io.Reader) anyerror!Parsed {
     var arena = try allocator.create(std.heap.ArenaAllocator);
     errdefer allocator.destroy(arena);
     arena.* = std.heap.ArenaAllocator.init(allocator);
@@ -195,13 +218,13 @@ pub fn parse(allocator: std.mem.Allocator, input: std.io.AnyReader) anyerror!Par
 
 fn parseNested(p: *Parser) anyerror!Value {
     const fcc = try parseFourCC(p.input);
-    const t = try p.input.readByte();
-    const ss: usize = @as(usize, @intCast(try p.input.readByte()));
-    const rpt = try p.input.readInt(u16, .big);
+    const t = try p.input.takeByte();
+    const ss: usize = @as(usize, @intCast(try p.input.takeByte()));
+    const rpt = try p.input.takeInt(u16, .big);
     const vs = try parseValue(p, t, ss, rpt);
     const padding = (4 - ((ss * rpt) % 4)) % 4;
     for (0..padding) |_| {
-        _ = p.input.readByte() catch |err| switch (err) {
+        _ = p.input.takeByte() catch |err| switch (err) {
             error.EndOfStream => {},
             else => return err,
         };
@@ -215,18 +238,18 @@ fn parseNested(p: *Parser) anyerror!Value {
     return .{ .nested = .{ .fourcc = fcc, .data = vs } };
 }
 
-fn parseFourCC(input: std.io.AnyReader) !FourCC {
+fn parseFourCC(input: *std.Io.Reader) !FourCC {
     var fcc: FourCC = undefined;
     inline for (0..4) |i| {
-        fcc[i] = try input.readByte();
+        fcc[i] = try input.takeByte();
     }
     return fcc;
 }
 
 test parseFourCC {
     var buf: [4]u8 = "GPMF".*;
-    var fbs = std.io.fixedBufferStream(&buf);
-    const fcc = try parseFourCC(fbs.reader().any());
+    var fbs = std.Io.Reader.fixed(&buf);
+    const fcc = try parseFourCC(&fbs);
     try testing.expectEqual(fcc, FourCC{ 'G', 'P', 'M', 'F' });
 }
 
@@ -239,21 +262,21 @@ fn replicated(p: *Parser, one: usize, l: usize, rpt: u16, t: u8) ![]Value {
     return a;
 }
 
-fn simpleParser(c: u8, input: std.io.AnyReader) anyerror!Value {
+fn simpleParser(c: u8, input: *std.Io.Reader) anyerror!Value {
     return switch (c) {
-        'b' => .{ .b = try input.readByteSigned() },
-        'B' => .{ .B = try input.readByte() },
-        'd' => .{ .d = @bitCast(try input.readInt(u64, .big)) },
-        'f' => .{ .f = @bitCast(try input.readInt(u32, .big)) },
+        'b' => .{ .b = try input.takeByteSigned() },
+        'B' => .{ .B = try input.takeByte() },
+        'd' => .{ .d = @bitCast(try input.takeInt(u64, .big)) },
+        'f' => .{ .f = @bitCast(try input.takeInt(u32, .big)) },
         'F' => .{ .F = try parseFourCC(input) },
-        'j' => .{ .j = try input.readInt(i64, .big) },
-        'J' => .{ .J = try input.readInt(u64, .big) },
-        'l' => .{ .l = try input.readInt(i32, .big) },
-        'L' => .{ .L = try input.readInt(u32, .big) },
-        'q' => .{ .q = try input.readInt(u32, .big) },
-        'Q' => .{ .Q = try input.readInt(u64, .big) },
-        's' => .{ .s = try input.readInt(i16, .big) },
-        'S' => .{ .S = try input.readInt(u16, .big) },
+        'j' => .{ .j = try input.takeInt(i64, .big) },
+        'J' => .{ .J = try input.takeInt(u64, .big) },
+        'l' => .{ .l = try input.takeInt(i32, .big) },
+        'L' => .{ .L = try input.takeInt(u32, .big) },
+        'q' => .{ .q = try input.takeInt(u32, .big) },
+        'Q' => .{ .Q = try input.takeInt(u64, .big) },
+        's' => .{ .s = try input.takeInt(i16, .big) },
+        'S' => .{ .S = try input.takeInt(u16, .big) },
         else => std.debug.panic("no simple parser for: {c}\n", .{c}),
     };
 }
@@ -282,9 +305,9 @@ test simpleParser {
     };
 
     for (staticExamples) |example| {
-        var fbs = std.io.fixedBufferStream(example.bytes);
+        var fbs = std.Io.Reader.fixed(example.bytes);
 
-        const result = try simpleParser(example.c, fbs.reader().any());
+        const result = try simpleParser(example.c, &fbs);
         try std.testing.expectEqual(example.value, result);
     }
 }
@@ -298,7 +321,7 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
             for (0..rpt) |i| {
                 var buf = try p.alloc.alloc(u8, ss);
                 for (0..ss) |j| {
-                    buf[j] = try p.input.readByte();
+                    buf[j] = try p.input.takeByte();
                 }
                 a[i] = .{ .c = buf };
             }
@@ -312,7 +335,7 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
             for (0..rpt) |i| {
                 var buf: [16]u8 = undefined;
                 inline for (0..16) |j| {
-                    buf[j] = try p.input.readByte();
+                    buf[j] = try p.input.takeByte();
                 }
                 a[i] = .{ .G = buf };
             }
@@ -331,7 +354,7 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
             for (0..rpt) |i| {
                 var buf: [16]u8 = undefined;
                 inline for (0..16) |j| {
-                    buf[j] = try p.input.readByte();
+                    buf[j] = try p.input.takeByte();
                 }
                 a[i] = .{ .U = try zeit.instant(.{}) };
                 const inst = try zeit.instant(.{
@@ -345,8 +368,9 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
         },
         '?' => parseComplex(p, ss, rpt),
         0 => {
-            var inin = std.io.limitedReader(p.input, @intCast(ss * rpt));
-            var pin = Parser{ .input = inin.reader().any(), .alloc = p.alloc, .ctype = p.ctype };
+            var buf: [8192]u8 = undefined;
+            var inin = std.Io.Reader.Limited.init(p.input, std.Io.Limit.limited(@intCast(ss * rpt)), &buf);
+            var pin = Parser{ .input = &inin.interface, .alloc = p.alloc, .ctype = p.ctype };
 
             var a = try p.alloc.alloc(Value, rpt);
             var n: u32 = 0;
@@ -373,12 +397,12 @@ fn parseValue(p: *Parser, t: u8, ss: usize, rpt: u16) anyerror![]Value {
 test "parseValue error cases" {
     // Test invalid type character
     var input = [_]u8{0};
-    var fbs = std.io.fixedBufferStream(&input);
+    var fbs = std.Io.Reader.fixed(&input);
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
 
     var p = Parser{
-        .input = fbs.reader().any(),
+        .input = &fbs,
         .alloc = arena.allocator(),
         .ctype = "",
     };

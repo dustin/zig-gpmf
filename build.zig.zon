@@ -8,7 +8,7 @@
     // within the Zig package namespace.
     .name = .gpmf,
 
-	.fingerprint = 0xa7c6a97160ed35dd,
+    .fingerprint = 0xa7c6a97160ed35dd,
 
     // This is a [Semantic Version](https://semver.org/).
     // In a future version of Zig it will be used for package deduplication.
@@ -25,17 +25,17 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
     .dependencies = .{
-        .zeit = .{
-            .url = "https://github.com/rockorager/zeit/archive/refs/tags/v0.4.4.tar.gz",
-            .hash = "12204b653c90b503f89e2f1a73c4754b83fb7275c100c81872deaca12c9f17e334ec",
-        },
         .marble = .{
-            .url = "git+https://github.com/dustin/marble?ref=fourteen#056f473bdf6d79b0adab39a55b04b7f781ab640f",
-            .hash = "12203253b8970f43c42b492f3a8c5fec1333807804227a5d3924975b07908d8cd02d",
+            .url = "git+https://github.com/cryptocode/marble?ref=zig-0.15.1#849036d61869e51eb3333c79ba4e2ef824370953",
+            .hash = "marble-0.1.0-7YLncBlQAACpOdRTvrUH2gHQSEQkKNMp_7jq-NB9FUge",
         },
         .zigthesis = .{
-            .url = "git+https://github.com/dustin/zigthesis?ref=fourteen#bde3b7b976623eb96283a89663f0475bb7627e59",
-            .hash = "1220cf6a9fb6db25469f405ccd03792ee5f6289e557f72df0c955103ede0cfe0e41b",
+            .url = "git+https://github.com/dustin/zigthesis#5783d288e333f078f533102d68b6b13d0a53af1e",
+            .hash = "zigthesis-0.0.0-pjogwxhWAAA-ZBWblwsk4cB9LjWOR3zbDjC5nEx9ZZu0",
+        },
+        .zeit = .{
+            .url = "https://github.com/rockorager/zeit/archive/refs/heads/zig-0.15.zip",
+            .hash = "zeit-0.6.0-5I6bk0J9AgCVa0nnyL0lNY9Xa9F68hHq-ZarhuXNV-Jb",
         },
     },
     .paths = .{
