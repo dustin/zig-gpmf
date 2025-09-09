@@ -102,8 +102,6 @@ fn safeCast(comptime T: type, v: anytype) ?T {
         .int => switch (@typeInfo(@TypeOf(v))) {
             .int => std.math.cast(T, v),
             .float => {
-                // T : u32
-                // v : f32
                 if (v < @as(@TypeOf(v), @floatFromInt(std.math.minInt(T))) or v > @as(@TypeOf(v), @floatFromInt(std.math.maxInt(T)))) {
                     return null;
                 } else {

@@ -43,35 +43,43 @@ const ValueConversionTest = struct {
     value: gpmf.Value,
 
     pub fn transformTob(self: *@This()) void {
-        self.value = .{ .b = self.value.as(i8) catch return };
+        const x = self.value.as(i8) catch return;
+        self.value = .{ .b = x };
     }
 
     pub fn transformToB(self: *@This()) void {
-        self.value = .{ .B = self.value.as(u8) catch return };
+        const x = self.value.as(u8) catch return;
+        self.value = .{ .B = x };
     }
 
     pub fn transformTos(self: *@This()) void {
-        self.value = .{ .s = self.value.as(i16) catch return };
+        const x = self.value.as(i16) catch return;
+        self.value = .{ .s = x };
     }
 
     pub fn transformToS(self: *@This()) void {
-        self.value = .{ .S = self.value.as(u16) catch return };
+        const x = self.value.as(u16) catch return;
+        self.value = .{ .S = x };
     }
 
     pub fn transformTol(self: *@This()) void {
-        self.value = .{ .l = self.value.as(i32) catch return };
+        const x = self.value.as(i32) catch return;
+        self.value = .{ .l = x };
     }
 
     pub fn transformToL(self: *@This()) void {
-        self.value = .{ .L = self.value.as(u32) catch return };
+        const x = self.value.as(u32) catch return;
+        self.value = .{ .L = x };
     }
 
     pub fn transformToQ(self: *@This()) void {
-        self.value = .{ .q = self.value.as(u32) catch return };
+        const x = self.value.as(u64) catch return;
+        self.value = .{ .Q = x };
     }
 
     pub fn transformToJ(self: *@This()) void {
-        self.value = .{ .J = self.value.as(u64) catch return };
+        const x = self.value.as(u64) catch return;
+        self.value = .{ .J = x };
     }
 
     pub fn check(_: *@This(), orig: gpmf.Value, transformed: gpmf.Value) bool {
@@ -89,7 +97,7 @@ fn runConversionTest(v: TestValue) bool {
 }
 
 test "Value Conversion Metamorphic Property Test" {
-    // try zigthesis.falsifyWith(runConversionTest, "conversion tests", .{ .max_iterations = 10000, .onError = zigthesis.failOnError });
+    try zigthesis.falsifyWith(runConversionTest, "conversion tests", .{ .max_iterations = 10000, .onError = zigthesis.failOnError });
 }
 
 test "Value conversion examples" {
