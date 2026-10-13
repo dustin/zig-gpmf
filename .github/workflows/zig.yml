@@ -10,10 +10,11 @@ jobs:
   build:
     name: Build with ${{ matrix.zig_version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.zig_version == 'master' }}
     strategy:
       fail-fast: false
       matrix:
-        zig_version: ["0.15.1", "master"]
+        zig_version: ["0.15.2", "master"]
         os:
           [
             "ubuntu-latest",
